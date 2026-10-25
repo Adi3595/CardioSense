@@ -229,23 +229,32 @@ curl -X POST "http://127.0.0.1:8000/predict" \
 
 ---
 
-## 7. Minimal Demonstration Interface (Streamlit)
+## 7. Next.js Research Web Portal
 
-Launch the functional clinical evaluation demo:
+Launch the fullstack Next.js web portal:
 ```bash
-streamlit run app/streamlit_app.py
+cd frontend
+npm run dev
 ```
-Access the application at `http://localhost:8501`.
+Access the application at `http://localhost:3000`.
+
+**Features**:
+- Complete research showcase (Provenance, Data Hygiene, 6 EDA publication plots with zoom lightbox)
+- Model Benchmarks & Curve switchers (Confusion Matrices, ROC, Precision-Recall, Bar comparison)
+- Error Analysis on the 7 test misclassifications (False Negatives vs False Positives)
+- SHAP Beeswarm & Waterfall local patient explanations
+- Live Clinical Risk Simulator communicating in real-time with the FastAPI `/predict` backend
 
 ---
 
-## 8. Docker Deployment
+## 8. Deployment & Containers
 ```bash
-# Build and run API + Streamlit via Docker Compose
-docker-compose up --build
+# Start backend API (FastAPI)
+uvicorn api.main:app --host 127.0.0.1 --port 8000
+
+# Start frontend application (Next.js)
+cd frontend && npm run dev
 ```
-- API: `http://localhost:8000/docs`
-- Demo UI: `http://localhost:8501`
 
 ---
 
