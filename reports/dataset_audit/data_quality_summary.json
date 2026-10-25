@@ -1,0 +1,23 @@
+{
+  "dataset_name": "UCI Heart Disease (Cleveland database)",
+  "retrieval_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data",
+  "sha256_checksum": "a74b7efa387bc9d108d7d0115d831fe9b414b29ae7124f331b622b4efa0427c8",
+  "raw_shape": [
+    303,
+    14
+  ],
+  "processed_shape": [
+    303,
+    14
+  ],
+  "target_distribution": {
+    "absence (0)": 164,
+    "presence (1)": 139,
+    "prevalence_rate": 0.4587
+  },
+  "missing_values_per_column": {
+    "ca": 4,
+    "thal": 2
+  },
+  "duplicate_rows": 0
+}

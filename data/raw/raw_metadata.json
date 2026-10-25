@@ -1,0 +1,7 @@
+{
+  "source": "UCI Heart Disease (Cleveland database)",
+  "url": "https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data",
+  "download_timestamp_utc": "2026-10-25T21:31:11.369384+00:00",
+  "sha256": "a74b7efa387bc9d108d7d0115d831fe9b414b29ae7124f331b622b4efa0427c8",
+  "file_size_bytes": 18461
+}

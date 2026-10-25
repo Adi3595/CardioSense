@@ -1,0 +1,132 @@
+{
+  "project": "CardioSense",
+  "timestamp_utc": "2026-10-25T21:40:21.642780+00:00",
+  "dataset": {
+    "name": "UCI Heart Disease (Cleveland database)",
+    "url": "https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data",
+    "sha256": "a74b7efa387bc9d108d7d0115d831fe9b414b29ae7124f331b622b4efa0427c8"
+  },
+  "experimental_controls": {
+    "random_state": 42,
+    "cv_folds": 5,
+    "primary_selection_metric": "roc_auc",
+    "train_test_split": "80/20 Stratified"
+  },
+  "environment": {
+    "python_version": "3.13.7",
+    "os_platform": "Windows-11-10.0.26200-SP0",
+    "scikit_learn_version": "1.8.0",
+    "xgboost_version": "3.2.0",
+    "shap_version": "0.52.0"
+  },
+  "best_model_selected": "random_forest",
+  "models": {
+    "logistic_regression": {
+      "best_params": {
+        "classifier__C": 1.0,
+        "classifier__max_iter": 1000,
+        "classifier__penalty": "l2",
+        "classifier__solver": "lbfgs"
+      },
+      "cv_metrics": {
+        "mean_roc_auc": 0.9025,
+        "std_roc_auc": 0.0144,
+        "mean_accuracy": 0.8471,
+        "std_accuracy": 0.01,
+        "mean_precision": 0.8768,
+        "mean_recall": 0.7834,
+        "mean_f1": 0.8245
+      },
+      "test_metrics": {
+        "accuracy": 0.8852,
+        "precision": 0.8387,
+        "recall": 0.9286,
+        "specificity": 0.8485,
+        "f1_score": 0.8814,
+        "roc_auc": 0.9665,
+        "average_precision": 0.9634,
+        "confusion_matrix": {
+          "true_negatives": 28,
+          "false_positives": 5,
+          "false_negatives": 2,
+          "true_positives": 26
+        },
+        "false_negatives": 2,
+        "false_positives": 5,
+        "total_test_samples": 61
+      }
+    },
+    "random_forest": {
+      "best_params": {
+        "classifier__max_depth": 5,
+        "classifier__max_features": "log2",
+        "classifier__min_samples_leaf": 2,
+        "classifier__n_estimators": 200
+      },
+      "cv_metrics": {
+        "mean_roc_auc": 0.9038,
+        "std_roc_auc": 0.0238,
+        "mean_accuracy": 0.8096,
+        "std_accuracy": 0.0321,
+        "mean_precision": 0.8096,
+        "mean_recall": 0.7739,
+        "mean_f1": 0.7874
+      },
+      "test_metrics": {
+        "accuracy": 0.8852,
+        "precision": 0.8387,
+        "recall": 0.9286,
+        "specificity": 0.8485,
+        "f1_score": 0.8814,
+        "roc_auc": 0.9502,
+        "average_precision": 0.9364,
+        "confusion_matrix": {
+          "true_negatives": 28,
+          "false_positives": 5,
+          "false_negatives": 2,
+          "true_positives": 26
+        },
+        "false_negatives": 2,
+        "false_positives": 5,
+        "total_test_samples": 61
+      }
+    },
+    "xgboost": {
+      "best_params": {
+        "classifier__colsample_bytree": 0.8,
+        "classifier__learning_rate": 0.05,
+        "classifier__max_depth": 3,
+        "classifier__n_estimators": 100,
+        "classifier__reg_lambda": 5.0,
+        "classifier__subsample": 0.8
+      },
+      "cv_metrics": {
+        "mean_roc_auc": 0.8897,
+        "std_roc_auc": 0.0246,
+        "mean_accuracy": 0.8179,
+        "std_accuracy": 0.0407,
+        "mean_precision": 0.8246,
+        "mean_recall": 0.7735,
+        "mean_f1": 0.7929
+      },
+      "test_metrics": {
+        "accuracy": 0.9016,
+        "precision": 0.8667,
+        "recall": 0.9286,
+        "specificity": 0.8788,
+        "f1_score": 0.8966,
+        "roc_auc": 0.9513,
+        "average_precision": 0.9446,
+        "confusion_matrix": {
+          "true_negatives": 29,
+          "false_positives": 4,
+          "false_negatives": 2,
+          "true_positives": 26
+        },
+        "false_negatives": 2,
+        "false_positives": 4,
+        "total_test_samples": 61
+      }
+    }
+  }
+}
