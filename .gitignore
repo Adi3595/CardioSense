@@ -48,3 +48,13 @@ Thumbs.db
 
 # Temporary logs
 *.log
+
+# Node / Next.js
+node_modules/
+*/node_modules/
+.next/
+*/.next/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
