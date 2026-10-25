@@ -12,8 +12,10 @@ from typing import Optional
 
 import joblib
 import pandas as pd
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from api.schemas import (
     PatientInputSchema,
@@ -24,7 +26,9 @@ from src.config import (
     BEST_PIPELINE_FILE,
     MODEL_METADATA_FILE,
     FEATURE_NAMES,
-    DISCLAIMER_TEXT
+    DISCLAIMER_TEXT,
+    FIGURES_DIR,
+    PROJECT_ROOT
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -83,18 +87,37 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static figures and web frontend
+app.mount("/figures", StaticFiles(directory=FIGURES_DIR), name="figures")
+app.mount("/web", StaticFiles(directory=PROJECT_ROOT / "web"), name="web")
+
 
 @app.get("/", tags=["General"])
-async def root():
-    """Root entry point with service metadata."""
+async def root(request: Request):
+    """Serves the interactive research dashboard or JSON metadata based on Accept header."""
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        dashboard_index = PROJECT_ROOT / "web" / "index.html"
+        if dashboard_index.exists():
+            return FileResponse(dashboard_index)
     return {
         "service": "CardioSense ML Service",
         "version": app_state["version"],
         "docs_url": "/docs",
+        "dashboard_url": "/",
         "health_check": "/health",
         "predict_endpoint": "/predict",
         "disclaimer": DISCLAIMER_TEXT
     }
+
+
+@app.get("/dashboard", tags=["General"])
+async def dashboard():
+    """Serves the interactive research dashboard."""
+    dashboard_index = PROJECT_ROOT / "web" / "index.html"
+    if dashboard_index.exists():
+        return FileResponse(dashboard_index)
+    raise HTTPException(status_code=404, detail="Dashboard index not found.")
 
 
 @app.get("/health", response_model=HealthResponseSchema, tags=["Health"])
