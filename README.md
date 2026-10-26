@@ -3,7 +3,8 @@
 [![Python 3.13](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.116-009688.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.42-FF4B4B.svg)](https://streamlit.io/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000.svg)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://react.dev/)
 [![Tests Passing](https://img.shields.io/badge/pytest-18%20passed-brightgreen.svg)]()
 
 > **Notice & Medical Disclaimer**: CardioSense is an educational and academic research project investigating machine learning methodology and feature explainability on clinical benchmarks. It is **not clinically certified**, **not medical software**, and **must not be used for real-world medical diagnosis or treatment planning**.
@@ -130,8 +131,11 @@ CardioSense/
 │   ├── __init__.py
 │   ├── main.py                         # FastAPI application
 │   └── schemas.py                      # Pydantic request & response schemas
-├── app/
-│   └── streamlit_app.py                # Minimal clinical demonstration UI
+├── frontend/                           # Next.js 16 interactive research web portal
+│   ├── app/                            # App router, pages, and soft-paint design system
+│   ├── public/figures/                 # Publication research plots & SHAP visuals
+│   ├── package.json                    # Frontend dependencies
+│   └── next.config.mjs                 # Next.js configuration
 ├── tests/
 │   ├── test_data_validation.py         # Schema and target conversion tests
 │   ├── test_preprocessing.py           # Imputation & leakage tests
