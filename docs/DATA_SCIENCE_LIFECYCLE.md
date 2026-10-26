@@ -55,9 +55,27 @@ Cardiovascular disease (CVD) remains the leading cause of global mortality. Whil
 
 ## 3. How We Cleaned the Data: Step-by-Step Methodology
 
-### Step 1: Handling Non-Standard Missing Placeholders
-In the raw Cleveland data file, missing records were entered as ASCII question marks (`?`). Loading the dataset using standard CSV parsers would cause pandas to infer object/string datatypes, masking missingness and corrupting numerical operations.
+### 3.1 Formal Process Name
+The dataset cleaning and feature engineering methodology is formally designated as:
+> **"Leakage-Free ColumnTransformer Preprocessing Pipeline"**  
+> *(Also known in machine learning engineering as **Pipeline-Encapsulated Imputation & Transformation** under a **Split-First Protocol**)*.
 
+In Scikit-Learn, this architecture is instantiated using `sklearn.compose.ColumnTransformer` coupled with `sklearn.pipeline.Pipeline`.
+
+### 3.2 The 5 Core Cleaning Techniques
+| Step | Technique / Process Name | Library / Tool | Clinical Rationale & Implementation |
+| :---: | :--- | :--- | :--- |
+| **1** | **Sentinel Missing Value Coercion** | `pandas.read_csv(na_values=["?"])` | The raw UCI Cleveland dataset encoded missing entries as ASCII `"?"`. We coerced these into standard IEEE floating-point `NaN` values to enable automated numerical imputation without crashing type converters. |
+| **2** | **Angiographic Binary Thresholding** | Vectorized Boolean Masking | Transformed clinical stenosis counts (`num` $\in \{0, 1, 2, 3, 4\}$) into binary classification (`0` = Absence, `1` = Presence for $\ge 50\%$ vessel narrowing), then **immediately dropped** raw `num` to eliminate target leakage. |
+| **3** | **Split-Before-Fit Protocol** | `train_test_split(stratify=y)` | **Never clean or scale the entire dataset at once!** The dataset was partitioned into an 80% training set ($N=242$) and 20% untouched holdout test set ($N=61$) *prior* to computing any distribution statistics (medians, modes, $\mu$, $\sigma$). |
+| **4** | **Outlier-Resistant Median Imputation** | `SimpleImputer(strategy="median")` | For continuous features (`chol`, `oldpeak`, `trestbps`, `ca`), median imputation was used rather than mean because clinical features with heavy right tails (e.g., cholesterol up to $564\text{ mg/dl}$) bias the mean. |
+| **5** | **Most-Frequent Mode Imputation & One-Hot Encoding** | `SimpleImputer(strategy="most_frequent")` + `OneHotEncoder(handle_unknown="ignore")` | Missing values in discrete/categorical features (`thal`, `cp`, `restecg`, `slope`) were imputed using the training fold's statistical mode, followed by full one-hot dummy expansion. |
+
+---
+
+### 3.3 Detailed Step Execution
+
+#### Step 1: Handling Non-Standard Missing Placeholders
 * **Audit Results**:
   * Feature `ca`: 4 missing values (1.32%)
   * Feature `thal`: 2 missing values (0.66%)
@@ -74,7 +92,7 @@ df = pd.read_csv(
 )
 ```
 
-### Step 2: Target Variable Binarization
+#### Step 2: Target Variable Binarization
 The raw diagnosis column (`num`) contains integer values 0, 1, 2, 3, 4 indicating the count of diseased major vessels:
 * `num = 0`: Absence of CAD ($N=164, 54.12\%$)
 * `num \in {1, 2, 3, 4}`: Presence of CAD ($N=139, 45.88\%$)
@@ -85,24 +103,45 @@ df[TARGET_NAME] = (df[TARGET_RAW_NAME] > 0).astype(int)
 df.drop(columns=[TARGET_RAW_NAME], inplace=True)
 ```
 
-### Step 3: Strict Train-Test Partitioning (Leakage Prevention)
+#### Step 3: Strict Train-Test Partitioning (Leakage Prevention)
 To prevent statistical contamination (information about test distributions leaking into imputers and scalers), the 80/20 train-test split was executed **prior to calculating any feature statistics**:
 * **Training partition**: $N_{\text{train}} = 242$ observations
 * **Testing partition**: $N_{\text{test}} = 61$ observations (untouched holdout)
 * **Stratification**: Preserved the exact $45.88\%$ class balance across train and test partitions (`random_state=42`).
 
-### Step 4: Preprocessing Pipeline Architecture
-Transformations are isolated using Scikit-Learn `ColumnTransformer` (`src/preprocessing.py`):
+#### Step 4: Preprocessing Pipeline Architecture (`src/preprocessing.py`)
+```python
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
 
-1. **Numeric Feature Pipeline**:
-   * Continuous variables: `["age", "trestbps", "chol", "thalach", "oldpeak", "ca"]`
-   * **Imputation**: `SimpleImputer(strategy="median")`. Median was chosen over mean because clinical features such as `chol` (max $564\text{ mg/dl}$) and `oldpeak` (max $6.2\text{ mm}$) exhibit right-skewed distributions.
-   * **Scaling**: `StandardScaler()`. Calculates $z = \frac{x - \mu}{\sigma}$ strictly from training folds.
-2. **Categorical Feature Pipeline**:
-   * Nominal variables: `["sex", "cp", "fbs", "restecg", "exang", "slope", "thal"]`
-   * **Imputation**: `SimpleImputer(strategy="most_frequent")` (mode imputation).
-   * **Encoding**: `OneHotEncoder(handle_unknown="ignore", sparse_output=False)`.
-3. **Remainder Policy**: `remainder="drop"` ensures no unintended columns pass through to inference.
+# 1. Numeric Feature Pipeline: Median Imputation + Z-score Standardization
+numeric_transformer = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="median")),  # Robust to clinical outliers
+    ("scaler", StandardScaler())                    # z = (x - μ) / σ
+])
+
+# 2. Categorical Feature Pipeline: Mode Imputation + One-Hot Dummy Encoding
+categorical_transformer = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="most_frequent")),  # Most frequent class
+    ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+])
+
+# 3. Master Preprocessor: ColumnTransformer
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("num", numeric_transformer, NUMERIC_FEATURES),
+        ("cat", categorical_transformer, CATEGORICAL_FEATURES)
+    ],
+    remainder="drop"  # Guarantees zero stray or leaking columns pass through
+)
+```
+
+### 3.4 Why This Is the Gold Standard in Medical ML
+1. **Mathematical Isolation (Zero Data Leakage)**: Imputers and scalers compute their internal parameters ($\mu, \sigma, \text{median}$) strictly inside the training folds. The holdout test set is evaluated blindly, preventing optimistic bias in performance metrics.
+2. **Crash-Proof Production Serving**: With `handle_unknown="ignore"` on `OneHotEncoder`, the live inference server handles unseen or rare categorical levels by encoding them as all zeros rather than crashing with an unhandled 500 error.
+3. **Full Serialization**: The entire `ColumnTransformer` is bundled into a single joblib artifact (`models/best_pipeline.joblib`), ensuring that raw patient dictionaries sent to the API are preprocessed using the exact weights learned during training.
 
 ---
 
