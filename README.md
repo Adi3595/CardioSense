@@ -9,6 +9,8 @@
 
 > **Notice & Medical Disclaimer**: CardioSense is an educational and academic research project investigating machine learning methodology and feature explainability on clinical benchmarks. It is **not clinically certified**, **not medical software**, and **must not be used for real-world medical diagnosis or treatment planning**.
 
+📖 **Complete Data Science Guide**: For full zero-to-complete lifecycle documentation including step-by-step data cleaning, leakage prevention, benchmark metrics, error diagnostics, and SHAP explainability, see [**docs/DATA_SCIENCE_LIFECYCLE.md**](docs/DATA_SCIENCE_LIFECYCLE.md).
+
 ---
 
 ## 1. Project Overview & Research Questions

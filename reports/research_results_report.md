@@ -100,4 +100,4 @@ Out of 61 held-out test patients, 7 were misclassified by the champion model (5 
 
 ## 8. Non-Diagnostic Medical Disclaimer
 > [!CAUTION]
-> **{DISCLAIMER_TEXT}**
+> **DISCLAIMER**: CardioSense is an academic research and educational prototype developed for studying explainable machine learning methodologies. It is **not clinically validated**, **not certified as a medical device (CE/FDA)**, and **must not be used for real-world medical diagnosis, risk assessment, or treatment decisions**. Always consult a licensed healthcare professional for clinical advice.
