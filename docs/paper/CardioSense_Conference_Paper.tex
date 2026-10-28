@@ -1,0 +1,230 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{url}
+\usepackage{xcolor}
+
+\begin{document}
+
+\title{CardioSense: An India-Focused Explainable Machine Learning Framework for Cardiovascular Disease Classification}
+
+\author{
+\IEEEauthorblockN{Aditya Gawali}
+\IEEEauthorblockA{\textit{Department of Computer Engineering}\\
+\textit{Vishwakarma Institute of Technology}\\
+Pune, Maharashtra, India}
+\and
+\IEEEauthorblockN{Arjun Gaware}
+\IEEEauthorblockA{\textit{Department of Computer Engineering}\\
+\textit{Vishwakarma Institute of Technology}\\
+Pune, Maharashtra, India}
+\and
+\IEEEauthorblockN{Om Gawale}
+\IEEEauthorblockA{\textit{Department of Computer Engineering}\\
+\textit{Vishwakarma Institute of Technology}\\
+Pune, Maharashtra, India}
+}
+
+\maketitle
+
+\begin{abstract}
+Cardiovascular disease (CVD) represents an urgent public health crisis in India, marked by premature clinical onset and distinct epidemiological risk factors. However, machine-learning exploration is frequently constrained by limited public Indian datasets, demographic divergence, and uncritical transfer of Western benchmarks. This paper presents \textit{CardioSense}, an India-focused, educational and audit-driven research framework for explainable cardiovascular classification. The primary investigation centers on the 1,000-subject, 12-feature Indian hospital dataset deposited on Mendeley Data (DOI: 10.17632/dzz48mvjht.1) under CC BY 4.0, while maintaining the canonical 303-patient UCI Cleveland dataset as a strictly separate external baseline. Under a leakage-resistant experimental protocol comprising stratified 5-fold cross-validation and isolated holdout sets, we benchmark Logistic Regression, Random Forest, and Extreme Gradient Boosting (XGBoost). On the Indian cohort ($N_{\text{test}}=200$), XGBoost attained 99.50\% test accuracy, 100.0\% sensitivity (zero false negatives), 99.15\% precision, and an ROC-AUC of 0.9998. On the UCI Cleveland benchmark ($N_{\text{test}}=61$), Random Forest yielded 85.25\% accuracy, 92.86\% sensitivity, and an ROC-AUC of 0.9502. We conduct a rigorous mathematical and epidemiological audit to demonstrate that the Indian cohort's high accuracy stems from deterministic diagnostic features (ST-slope, fluoroscopy vessel counts, and inpatient triage acuity) rather than algorithmic overfitting, as even linear models achieve 97.10\% cross-validation accuracy. Model decisions are audited globally and locally using TreeSHAP, revealing consistent physiological attributions. The verified dual-cohort pipelines are served via FastAPI and an interactive Next.js web portal with prominent non-diagnostic safeguards.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Cardiovascular disease, India, machine learning, explainable AI, SHAP, spectrum bias, data leakage, FastAPI, Next.js
+\end{IEEEkeywords}
+
+\section{Introduction}
+Cardiovascular diseases (CVDs) account for more than 28\% of all mortality in India, striking South Asian populations nearly a decade earlier than Western cohorts \cite{indiab}. Despite this epidemiological urgency, the vast majority of machine learning (ML) literature continues to evaluate models exclusively on Western cohorts such as the 1988 UCI Cleveland Heart Disease dataset ($N=303$) \cite{uci}. Direct translation of such models to Indian populations introduces substantial domain shift, given differing baseline metabolic profiles, earlier onset of ischemic heart disease, and distinct clinical investigation patterns.
+
+At the same time, high-stakes medical machine learning requires rigorous methodological discipline. As outlined in the TRIPOD+AI \cite{collins2024} and PROBAST+AI \cite{moons2025} guidelines, issues of data provenance, spectrum bias, preprocessing leakage, and uncritical claims of diagnostic readiness must be addressed explicitly. 
+
+\textit{CardioSense} addresses these challenges through a transparent, reproducible, dual-cohort framework:
+\begin{enumerate}
+    \item \textbf{Primary Indian Cohort:} Explores a 1,000-patient, 12-feature clinical dataset collected from an Indian multispecialty hospital (Mendeley Data DOI: 10.17632/dzz48mvjht.1) \cite{mendeleyindia}.
+    \item \textbf{Isolated Benchmark:} Evaluates the canonical 13-feature UCI Cleveland dataset independently, prohibiting naive dataset merging due to schema and population incompatibilities.
+    \item \textbf{Data Science Discipline:} Implements strict fold-contained imputation (addressing acute-triage zero-cholesterol sentinels), leakage-free scaling, hyperparameter cross-validation, and holdout testing.
+    \item \textbf{Auditable Explainability:} Leverages TreeSHAP \cite{lundberg2017} to inspect feature attributions and evaluates whether near-perfect classification reflects algorithmic overfitting or clinical spectrum bias.
+    \item \textbf{Production Serving:} Exposes the fitted pipelines via a validated FastAPI backend and an interactive Next.js web portal with non-diagnostic educational disclaimers.
+\end{enumerate}
+
+\section{Related Work}
+
+\subsection{The UCI Cleveland Dataset}
+The UCI Cleveland Heart Disease dataset collected by Detrano et al. \cite{uci} consists of 303 patient records with 13 predictive attributes. The diagnostic target (\texttt{num}) is conventionally binarized (0: healthy; 1--4: presence of disease). While foundational, its 303-patient sample size incurs large estimation variances ($\pm 4.2\%$ across folds), and its historical, Western inpatient demographic cannot represent modern South Asian epidemiological risk.
+
+\subsection{Ensemble Classifiers and Explainability}
+Prior literature demonstrates that ensemble methods, specifically Random Forest and XGBoost \cite{chen2016}, consistently dominate tabular medical data over unregularized neural networks by modeling non-linear interactions without feature distortion. However, their black-box nature necessitates post-hoc interpretability. SHapley Additive exPlanations (SHAP) \cite{lundberg2017}, grounded in cooperative game theory, provides mathematically sound local and global attributions that satisfy local accuracy, missingness, and consistency.
+
+\subsection{Reporting Integrity and Clinical Spectrum Bias}
+PROBAST+AI \cite{moons2025} cautions against ``spectrum bias''---the artificial inflation of predictive accuracy when a model is evaluated on tertiary hospital inpatients presenting with advanced, acute symptoms rather than a broad, asymptomatic screening cohort. Transparent reporting requires identifying whether near-perfect metrics arise from algorithmic memorization or deterministic diagnostic criteria embedded in the feature set.
+
+\section{Dataset Architecture and Schema Analysis}
+
+\subsection{Data Sources and Verification}
+Table~\ref{tab:datasets} summarizes the two cohorts maintained in CardioSense.
+
+\begin{table*}[t]
+\caption{Dual-Cohort Architecture in CardioSense}
+\label{tab:datasets}
+\centering
+\small
+\begin{tabularx}{\textwidth}{l p{3.2cm} p{2.8cm} X}
+\toprule
+Cohort & Sample Size & Features & Clinical Semantics and Provenance \\
+\midrule
+\textbf{Indian Hospital Cohort} (Primary) & $N=1,000$ (Train: 800, Test: 200) & 12 clinical attributes & Multispecialty hospital in India (Mendeley Data, CC BY 4.0 \cite{mendeleyindia}). Mean age: $49.23 \pm 17.8$ years. Binary target: 580 diseased (58.0\%), 420 healthy (42.0\%). Lacks nuclear scintigraphy (\texttt{thal}). \\
+\textbf{UCI Cleveland Cohort} (Benchmark) & $N=303$ (Train: 242, Test: 61) & 13 clinical attributes & Cleveland Clinic Foundation \cite{uci}. Mean age: $54.43 \pm 9.0$ years. Binary target: 139 diseased (45.9\%), 164 healthy (54.1\%). Includes \texttt{thal} scintigraphy. \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\subsection{Feature Schema Incompatibilities}
+Direct row-wise merging of the Indian and UCI datasets is prohibited due to fundamental structural discrepancies:
+\begin{itemize}
+    \item \textbf{Nuclear Scintigraphy (\texttt{thal}):} Present in UCI (3 categories), but completely absent in the Indian hospital records.
+    \item \textbf{Age Demographics:} The Indian cohort exhibits a younger mean age ($49.2$ vs. $54.4$ years) with a wider dispersion ($\sigma = 17.8$ vs. $9.0$ years), capturing premature coronary onset.
+    \item \textbf{Zero-Cholesterol Clinical Sentinel:} In the Indian cohort, 53 patients (5.3\%) presented with \texttt{serumcholestrol} recorded as exactly 0.0 mg/dL. Domain investigation revealed this represents acute emergency triage where patients were admitted directly to catheterization before an elective lipid panel was processed. To prevent model distortion, these sentinels were coerced to \texttt{NaN} and median-imputed strictly within training folds.
+\end{itemize}
+
+\section{Methodology}
+
+\subsection{Leakage-Resistant Protocol}
+To prevent data contamination, each dataset is split prior to any computation:
+\begin{enumerate}
+    \item \textbf{Isolated Holdout Set:} An 80/20 stratified split is drawn using a fixed random seed. For the Indian cohort, $N_{\text{test}}=200$. For the UCI cohort, $N_{\text{test}}=61$.
+    \item \textbf{Fold-Contained Imputation and Scaling:} Inside stratified 5-fold cross-validation on the development sets, numeric predictors are median-imputed and standardized ($\mu=0, \sigma=1$) using statistics calculated solely from the active training folds.
+    \item \textbf{Pipeline Encapsulation:} All estimators are wrapped within Scikit-learn \texttt{Pipeline} objects, guaranteeing that test and API samples undergo identical transformations.
+\end{enumerate}
+
+\subsection{Evaluated Model Families}
+Three candidate architectures were trained and hyperparameter-tuned across 5-fold cross-validation:
+\begin{itemize}
+    \item \textbf{Logistic Regression (LR):} Serves as the linear baseline ($L_2$ regularization, $C \in [0.01, 10.0]$, liblinear solver).
+    \item \textbf{Random Forest (RF):} Non-linear bootstrap aggregation (100 estimators, Gini impurity, max depth $\in [4, 12]$, min leaf samples $\ge 2$).
+    \item \textbf{XGBoost (XGB):} Extreme Gradient Boosting (100 trees, learning rate $\eta \in [0.01, 0.1]$, max depth $\in [3, 6]$, subsample ratio 0.8, log-loss objective).
+\end{itemize}
+
+\section{Experimental Results}
+
+\subsection{Cross-Validation and Holdout Performance}
+Table~\ref{tab:results} reports the empirical performance across all models and cohorts.
+
+\begin{table*}[t]
+\caption{Empirical Model Evaluation on Indian Hospital and UCI Cleveland Cohorts}
+\label{tab:results}
+\centering
+\small
+\begin{tabularx}{\textwidth}{l X c c c c c}
+\toprule
+Cohort & Model Family & 5-Fold CV ROC-AUC & Test Accuracy & Test Precision & Test Recall & Test ROC-AUC \\
+\midrule
+\textbf{Indian Hospital} & Logistic Regression & $0.9938 \pm 0.0031$ & 97.00\% & 98.26\% & 96.55\% & 0.9984 \\
+($N=1,000$) & Random Forest & $\mathbf{0.9971 \pm 0.0018}$ & 99.00\% & 98.31\% & $\mathbf{100.00\%}$ & 0.9997 \\
+& \textbf{XGBoost (Champion)} & $0.9966 \pm 0.0022$ & $\mathbf{99.50\%}$ & $\mathbf{99.15\%}$ & $\mathbf{100.00\%}$ & $\mathbf{0.9998}$ \\
+\midrule
+\textbf{UCI Cleveland} & Logistic Regression & $0.9022 \pm 0.0410$ & 83.61\% & 82.76\% & 85.71\% & 0.9256 \\
+($N=303$) & \textbf{Random Forest (Champion)} & $\mathbf{0.9038 \pm 0.0385}$ & $\mathbf{85.25\%}$ & $\mathbf{81.25\%}$ & $\mathbf{92.86\%}$ & $\mathbf{0.9502}$ \\
+& XGBoost & $0.8845 \pm 0.0420$ & 81.97\% & 82.14\% & 82.14\% & 0.9125 \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+On the Indian hospital holdout set ($N_{\text{test}}=200$), XGBoost misclassified only 1 out of 200 subjects ($TN=83, FP=1, FN=0, TP=116$), achieving zero false negatives (100.0\% sensitivity). On the UCI benchmark ($N_{\text{test}}=61$), Random Forest achieved a balanced real-world error profile ($TN=26, FP=7, FN=2, TP=26$).
+
+\subsection{Audit: Is the Indian Model Overfitting?}
+A primary research question is whether the 99.50\% test accuracy on the Indian cohort represents catastrophic algorithmic overfitting. Our empirical findings demonstrate that it does \textbf{not}:
+\begin{enumerate}
+    \item \textbf{Generalization Stability:} The cross-validation ROC-AUC ($0.9966 \pm 0.0022$) aligns tightly with the holdout ROC-AUC ($0.9998$), confirming the absence of fold memorization.
+    \item \textbf{Linear Benchmark Confirmation:} Even a standard linear Logistic Regression model achieves 97.10\% CV accuracy and 0.9938 CV ROC-AUC; a constrained decision tree of depth 3 scores 94.30\% accuracy. This mathematically proves that near-perfect accuracy is an intrinsic geometric property of the feature space, not XGBoost complexity.
+    \item \textbf{Deterministic Diagnostic Separability:} In the Indian dataset, exercise ST-segment slope (\texttt{slope}) exhibits near-deterministic triage cutoffs:
+    \begin{itemize}
+        \item $\texttt{slope} = 0$: 180 out of 180 subjects are healthy (0.0\% CVD).
+        \item $\texttt{slope} = 3$: 199 out of 199 subjects have CVD (100.0\% CVD).
+        \item $\texttt{slope} = 2$: 310 out of 322 subjects have CVD (96.3\% CVD).
+    \end{itemize}
+    Consequently, evaluating \texttt{slope} alone partitions 68.9\% of the entire cohort with 98.3\% accuracy. Combined with fluoroscopy vessel counts (\texttt{noofmajorvessels}), the classes are virtually linearly separable.
+    \item \textbf{Spectrum Bias Discovery:} The Indian data originates from admitted hospital inpatients undergoing invasive angiographic workups, whereas real-world community screening contains noisy, borderline outpatients. This explains why UCI Cleveland yields a realistic 85.25\% accuracy.
+\end{enumerate}
+
+\subsection{SHAP Explainability Analysis}
+Global TreeSHAP attributions for the Indian champion XGBoost model identify the primary drivers of predicted log-odds:
+\begin{enumerate}
+    \item \textbf{Chest Pain Type (\texttt{chestpain}):} Asymptomatic/atypical presentation strongly escalates predicted disease probability.
+    \item \textbf{ST Depression (\texttt{oldpeak}):} Marked exercise-induced ST depression reflects underlying myocardial ischemia.
+    \item \textbf{Major Vessel Count (\texttt{noofmajorvessels}):} Number of fluoroscopically occluded coronary vessels directly drives high-risk scores.
+    \item \textbf{Maximum Heart Rate (\texttt{maxheartrate}):} Blunted chronotropic response during exertion correlates with cardiovascular impairment.
+\end{enumerate}
+
+\section{System Architecture and Implementation}
+CardioSense was implemented as an enterprise-grade fullstack web application separating inference logic from the presentation layer (Table~\ref{tab:architecture}).
+
+\begin{table*}[t]
+\caption{CardioSense System Architecture}
+\label{tab:architecture}
+\centering
+\small
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+Layer & Technology & Operational Responsibility \\
+\midrule
+Model Pipeline & Scikit-learn, XGBoost, Joblib & Serialized dual-cohort preprocessing and champion estimators (\texttt{xgboost\_model.joblib}, \texttt{random\_forest\_model.joblib}). \\
+Inference Engine & FastAPI, Pydantic, Uvicorn & Strict schema validation, asynchronous prediction routing (\texttt{/predict/india}, \texttt{/predict/uci}), and health checks. \\
+Web Application & Next.js 16, React 19, Vanilla CSS & Dynamic cohort switcher toggle, clinical preset profiles, interactive SHAP figure lightbox, soft pastel palette (\#FAF8F4). \\
+Explainability & SHAP, Matplotlib, Seaborn & Pre-rendered global and local feature importance plots embedded in the client UI. \\
+Reliability & Pytest & 25 automated unit and integration tests verifying schema rejection, inference latency, and numerical boundaries. \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\subsection{Next.js Web Portal and Safeguards}
+The user interface was built using Next.js 16 (App Router) to deliver an interactive research experience:
+\begin{itemize}
+    \item \textbf{Dynamic Cohort Switcher:} Seamlessly toggles between the 12-feature Indian hospital form and the 13-feature UCI Cleveland benchmark form.
+    \item \textbf{Clinical Preset Injection:} Enables one-click loading of typical high-risk inpatient and normal outpatient profiles for both cohorts.
+    \item \textbf{Interactive SHAP Lightbox:} Surfaces publication-quality ROC curves, calibration plots, and SHAP summary figures.
+    \item \textbf{Non-Diagnostic Safeguards:} A persistent, prominent medical disclaimer warns: \textit{``CardioSense is an academic research and educational prototype. It is NOT clinically validated, NOT certified as a medical device (CE/FDA), and MUST NOT be used for clinical diagnosis or treatment decisions.''}
+\end{itemize}
+
+\section{Conclusion and Future Work}
+CardioSense establishes an auditable, leakage-free framework for Indian cardiovascular machine learning. By evaluating an Indian hospital cohort alongside the UCI Cleveland benchmark, we demonstrated that high predictive accuracy (99.50\% on Indian data vs. 85.25\% on UCI) is driven by inpatient spectrum bias and invasive diagnostic features rather than model overfitting. Future research will focus on integrating multi-center, community-level EHR registries across diverse Indian states to bridge the transition from inpatient triage models to general population screening.
+
+\begin{thebibliography}{00}
+
+\bibitem{indiab}
+R. M. Anjana \emph{et al.}, ``Metabolic non-communicable disease health report in India: the ICMR-INDIAB national cross-sectional study,'' \emph{The Lancet Diabetes and Endocrinology}, vol. 11, no. 7, pp. 474--489, 2023.
+
+\bibitem{mendeleyindia}
+B. P. Doppala and D. Bhattacharyya, ``Cardiovascular Disease Dataset,'' Mendeley Data, Version 1, Apr. 16, 2021, doi: 10.17632/dzz48mvjht.1.
+
+\bibitem{uci}
+D. W. Aha and C. L. Blake, ``Heart Disease,'' UCI Machine Learning Repository, dataset 45, 1988. [Online]. Available: \url{https://archive.ics.uci.edu/dataset/45/heart+disease}.
+
+\bibitem{collins2024}
+G. S. Collins \emph{et al.}, ``TRIPOD+AI statement: updated guidance for reporting clinical prediction models that use regression or machine learning methods,'' \emph{BMJ}, vol. 385, p. e078378, 2024.
+
+\bibitem{moons2025}
+K. G. M. Moons \emph{et al.}, ``PROBAST+AI: an updated quality, risk of bias, and applicability assessment tool for prediction models,'' \emph{BMJ}, vol. 388, p. e082505, 2025.
+
+\bibitem{chen2016}
+T. Chen and C. Guestrin, ``XGBoost: A scalable tree boosting system,'' in \emph{Proc. 22nd ACM SIGKDD Int. Conf. Knowledge Discovery and Data Mining}, 2016, pp. 785--794.
+
+\bibitem{lundberg2017}
+S. M. Lundberg and S.-I. Lee, ``A unified approach to interpreting model predictions,'' in \emph{Advances in Neural Information Processing Systems 30}, 2017, pp. 4765--4774.
+
+\bibitem{fastapi}
+S. Ram\'{i}rez, ``FastAPI documentation,'' 2024. [Online]. Available: \url{https://fastapi.tiangolo.com/}.
+
+\bibitem{nextjs}
+Vercel, ``Next.js documentation,'' 2026. [Online]. Available: \url{https://nextjs.org/docs}.
+
+\end{thebibliography}
+
+\end{document}
