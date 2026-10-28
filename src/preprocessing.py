@@ -1,6 +1,10 @@
 """
 Preprocessing module for CardioSense.
 Builds leakage-safe Scikit-Learn ColumnTransformer and Pipeline objects.
+Supports both:
+1. India Hospital Cohort (Primary): 12 features (5 numeric, 7 categorical)
+2. UCI Cleveland Benchmark (Historical): 13 features (5 numeric, 8 categorical)
+
 Guarantees that all imputers, scalers, and encoders are fit solely on training data.
 """
 
@@ -15,6 +19,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from src.config import (
+    DEFAULT_DATASET,
+    get_dataset_config,
     NUMERIC_FEATURES,
     CATEGORICAL_FEATURES,
     FEATURE_NAMES
@@ -24,12 +30,14 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 
-def create_preprocessor(include_scaling: bool = True) -> ColumnTransformer:
+def create_preprocessor(dataset: str = DEFAULT_DATASET, include_scaling: bool = True) -> ColumnTransformer:
     """
     Creates a ColumnTransformer for preprocessing clinical attributes.
     
     Parameters:
     -----------
+    dataset : str
+        Dataset key ('india' or 'uci').
     include_scaling : bool
         If True, applies StandardScaler to numeric features (vital for Logistic Regression).
         If False, passes numeric features through after median imputation (suitable for tree-based models).
@@ -38,6 +46,15 @@ def create_preprocessor(include_scaling: bool = True) -> ColumnTransformer:
     --------
     ColumnTransformer
     """
+    try:
+        cfg = get_dataset_config(dataset)
+        num_cols = cfg["numeric_features"]
+        cat_cols = cfg["categorical_features"]
+    except Exception:
+        # Fallback to active config constants if legacy call
+        num_cols = NUMERIC_FEATURES
+        cat_cols = CATEGORICAL_FEATURES
+
     if include_scaling:
         numeric_transformer = Pipeline(steps=[
             ("imputer", SimpleImputer(strategy="median")),
@@ -55,8 +72,8 @@ def create_preprocessor(include_scaling: bool = True) -> ColumnTransformer:
 
     preprocessor = ColumnTransformer(
         transformers=[
-            ("num", numeric_transformer, NUMERIC_FEATURES),
-            ("cat", categorical_transformer, CATEGORICAL_FEATURES)
+            ("num", numeric_transformer, num_cols),
+            ("cat", categorical_transformer, cat_cols)
         ],
         remainder="drop"  # Guarantee no stray or label-leaking columns pass through
     )
@@ -86,13 +103,15 @@ def get_feature_names_out(preprocessor: ColumnTransformer) -> List[str]:
     return [str(f) for f in feature_names]
 
 
-def build_pipeline(estimator, include_scaling: bool = True) -> Pipeline:
+def build_pipeline(estimator, dataset: str = DEFAULT_DATASET, include_scaling: bool = True) -> Pipeline:
     """
     Combines preprocessor and estimator into a unified inference pipeline.
     
     Parameters:
     -----------
     estimator : scikit-learn compatible classifier
+    dataset : str
+        Dataset key ('india' or 'uci').
     include_scaling : bool
         Whether to scale numeric features.
     
@@ -100,7 +119,7 @@ def build_pipeline(estimator, include_scaling: bool = True) -> Pipeline:
     --------
     Pipeline
     """
-    preprocessor = create_preprocessor(include_scaling=include_scaling)
+    preprocessor = create_preprocessor(dataset=dataset, include_scaling=include_scaling)
     pipeline = Pipeline(steps=[
         ("preprocessor", preprocessor),
         ("classifier", estimator)

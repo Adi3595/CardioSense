@@ -101,3 +101,77 @@ def test_predict_endpoint_missing_fields(client):
     }
     response = client.post("/predict", json=payload)
     assert response.status_code == 422
+
+
+def test_predict_india_endpoint_valid_case(client):
+    """Test POST /predict/india with valid Indian clinical predictors."""
+    payload = {
+        "age": 52.0,
+        "gender": 1,
+        "chestpain": 0,
+        "restingBP": 150.0,
+        "serumcholestrol": 240.0,
+        "fastingbloodsugar": 0,
+        "restingrelectro": 1,
+        "maxheartrate": 155.0,
+        "exerciseangia": 1,
+        "oldpeak": 1.8,
+        "slope": 2,
+        "noofmajorvessels": 1
+    }
+    response = client.post("/predict/india", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["predicted_class"] in [0, 1]
+    assert data["prediction_label"] in ["Absence of Cardiovascular Disease", "Presence of Cardiovascular Disease"]
+    assert 0.0 <= data["probability_presence"] <= 1.0
+    assert 0.0 <= data["probability_absence"] <= 1.0
+    assert data["risk_level"] in ["Low", "Moderate", "High"]
+    assert "India" in data["dataset_source"]
+    assert "disclaimer" in data
+
+
+def test_predict_india_endpoint_invalid_category(client):
+    """Test POST /predict/india rejects invalid chest pain category."""
+    payload = {
+        "age": 52.0,
+        "gender": 1,
+        "chestpain": 99,  # Invalid
+        "restingBP": 150.0,
+        "serumcholestrol": 240.0,
+        "fastingbloodsugar": 0,
+        "restingrelectro": 1,
+        "maxheartrate": 155.0,
+        "exerciseangia": 1,
+        "oldpeak": 1.8,
+        "slope": 2,
+        "noofmajorvessels": 1
+    }
+    response = client.post("/predict/india", json=payload)
+    assert response.status_code == 422
+
+
+def test_predict_uci_endpoint_valid_case(client):
+    """Test POST /predict/uci with valid UCI Cleveland predictors."""
+    payload = {
+        "age": 63.0,
+        "sex": 1,
+        "cp": 1,
+        "trestbps": 145.0,
+        "chol": 233.0,
+        "fbs": 1,
+        "restecg": 2,
+        "thalach": 150.0,
+        "exang": 0,
+        "oldpeak": 2.3,
+        "slope": 3,
+        "ca": 0.0,
+        "thal": 6.0
+    }
+    response = client.post("/predict/uci", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["predicted_class"] in [0, 1]
+    assert "UCI" in data["dataset_source"] or "Cleveland" in data["dataset_source"]
+    assert "disclaimer" in data
+

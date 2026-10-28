@@ -1,0 +1,21 @@
+{
+  "name": "Cardiovascular Disease Dataset (India)",
+  "origin": "Multi-specialty hospital in India",
+  "authors": "Bhanu Prakash Doppala, Debnath Bhattacharyya",
+  "publication_date": "2021-04-16",
+  "doi": "10.17632/dzz48mvjht.1",
+  "primary_url": "https://data.mendeley.com/datasets/dzz48mvjht/1",
+  "sha256": "9376367dde41e79e432d6402ea5d9e44223fc318ff54ed09966d721923947d1e",
+  "rows": 1000,
+  "columns": 14,
+  "id_column": "patientid",
+  "target_column": "target",
+  "target_distribution": {
+    "0 (No CVD)": 420,
+    "1 (Presence of CVD)": 580
+  },
+  "additional_research_context": {
+    "ICMR_INDIAB": "https://nhrdr.icmr.org.in/datasets/icmr-indiab",
+    "ICADD": "https://www.medrxiv.org/content/10.1101/2023.05.13.23289934v1"
+  }
+}

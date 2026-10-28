@@ -1,13 +1,17 @@
 """
 Data loader module for CardioSense.
-Handles downloading, checksum calculation, schema parsing, target encoding,
-and stratified train-test splitting.
+Supports dual-dataset architecture:
+1. India Hospital Cohort (Primary): Multi-specialty hospital in India (Doppala & Bhattacharyya, N=1000)
+2. UCI Cleveland Benchmark (Historical): Cleveland Clinic Foundation (Janosi et al., 1988, N=303)
+
+Handles downloading, SHA-256 verification, schema parsing, target encoding,
+leakage-free pre-split isolation, and stratified train-test splitting.
 """
 
+import argparse
 import hashlib
 import json
 import logging
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Tuple, Optional
@@ -17,20 +21,12 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from src.config import (
-    RAW_DATA_FILE,
-    RAW_METADATA_FILE,
-    PROCESSED_DATA_DIR,
-    PROCESSED_DATA_FILE,
-    TRAIN_DATA_FILE,
-    TEST_DATA_FILE,
-    UCI_URL,
-    RAW_COLUMN_NAMES,
-    FEATURE_NAMES,
-    TARGET_RAW_NAME,
-    TARGET_NAME,
+    DEFAULT_DATASET,
+    DATASETS_CONFIG,
+    get_dataset_config,
     RANDOM_STATE,
     TEST_SIZE,
-    DATASET_SOURCE_INFO
+    PROJECT_ROOT
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -46,113 +42,172 @@ def compute_sha256(file_path: Path) -> str:
     return sha256.hexdigest()
 
 
-def fetch_raw_data(force_download: bool = False) -> Path:
+def fetch_raw_data(dataset: str = DEFAULT_DATASET, force_download: bool = False) -> Path:
     """
-    Download raw Cleveland dataset from UCI Machine Learning Repository
-    if not already present or forced.
+    Download raw dataset if not present or forced.
+    Supports both 'india' and 'uci' dataset configurations.
     """
-    RAW_DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
-    
-    if RAW_DATA_FILE.exists() and not force_download:
-        logger.info(f"Raw data file already exists at {RAW_DATA_FILE}")
-        return RAW_DATA_FILE
+    cfg = get_dataset_config(dataset)
+    raw_file: Path = cfg["raw_file"]
+    raw_file.parent.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"Downloading raw data from UCI: {UCI_URL}")
-    try:
-        import httpx
-        with httpx.Client(headers={"User-Agent": "Mozilla/5.0"}, timeout=15.0, follow_redirects=True) as client:
-            resp = client.get(UCI_URL)
-            resp.raise_for_status()
-            content = resp.content
-            with open(RAW_DATA_FILE, "wb") as f:
-                f.write(content)
-        logger.info(f"Successfully downloaded {len(content)} bytes to {RAW_DATA_FILE}")
-    except Exception as e:
-        logger.error(f"Failed downloading from UCI URL: {e}")
-        raise RuntimeError(f"Could not download dataset from {UCI_URL}: {e}")
+    if raw_file.exists() and not force_download:
+        logger.info(f"[{cfg['short_name']}] Raw data file already exists at {raw_file}")
+        return raw_file
+
+    download_urls = [cfg.get("mirror_url"), cfg.get("primary_url")]
+    download_urls = [u for u in download_urls if u]
+    
+    logger.info(f"[{cfg['short_name']}] Downloading raw data from {download_urls[0]}...")
+    
+    import httpx
+    downloaded = False
+    last_err = None
+    content = None
+
+    for url in download_urls:
+        try:
+            logger.info(f"Attempting download from: {url}")
+            with httpx.Client(headers={"User-Agent": "Mozilla/5.0"}, timeout=20.0, follow_redirects=True) as client:
+                resp = client.get(url)
+                resp.raise_for_status()
+                content = resp.content
+                with open(raw_file, "wb") as f:
+                    f.write(content)
+                downloaded = True
+                logger.info(f"Successfully downloaded {len(content)} bytes to {raw_file}")
+                break
+        except Exception as e:
+            logger.warning(f"Download from {url} failed: {e}")
+            last_err = e
+
+    if not downloaded:
+        raise RuntimeError(
+            f"Could not download dataset '{dataset}' from available URLs. "
+            f"Please manually place the file at {raw_file}. Last error: {last_err}"
+        )
 
     # Compute checksum and metadata
-    checksum = compute_sha256(RAW_DATA_FILE)
+    checksum = compute_sha256(raw_file)
     metadata = {
-        "source": DATASET_SOURCE_INFO["name"],
-        "url": UCI_URL,
+        "dataset_key": dataset,
+        "name": cfg["name"],
+        "source_url": cfg.get("primary_url"),
         "download_timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "sha256": checksum,
-        "file_size_bytes": RAW_DATA_FILE.stat().st_size
+        "file_size_bytes": raw_file.stat().st_size
     }
-    with open(RAW_METADATA_FILE, "w", encoding="utf-8") as f:
+    
+    meta_file = cfg.get("metadata_file", raw_file.parent / "raw_metadata.json")
+    with open(meta_file, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
-    logger.info(f"Saved raw metadata with SHA256 {checksum} to {RAW_METADATA_FILE}")
+    logger.info(f"Saved raw metadata with SHA256 {checksum} to {meta_file}")
 
-    return RAW_DATA_FILE
+    return raw_file
 
 
-def load_raw_dataset(file_path: Optional[Path] = None) -> pd.DataFrame:
+def load_raw_dataset(dataset: str = DEFAULT_DATASET, file_path: Optional[Path] = None) -> pd.DataFrame:
     """
-    Parse the raw Cleveland dataset into a pandas DataFrame.
-    Converts '?' and empty strings to NaN.
+    Parse the raw dataset into a pandas DataFrame.
+    Converts '?' and sentinel placeholders to NaN.
     """
-    path = file_path or RAW_DATA_FILE
+    cfg = get_dataset_config(dataset)
+    path = file_path or cfg["raw_file"]
+    
     if not path.exists():
-        fetch_raw_data()
+        fetch_raw_data(dataset=dataset)
 
-    logger.info(f"Reading raw dataset from {path}")
-    df = pd.read_csv(
-        path,
-        header=None,
-        names=RAW_COLUMN_NAMES,
-        na_values=["?", "NA", "nan", ""],
-        skipinitialspace=True
-    )
-    logger.info(f"Loaded raw dataset with shape: {df.shape}")
+    logger.info(f"[{cfg['short_name']}] Reading raw dataset from {path}")
+    
+    if dataset == "india":
+        # Indian CSV contains header row: patientid, age, gender, chestpain, ...
+        df = pd.read_csv(
+            path,
+            na_values=["?", "NA", "nan", ""],
+            skipinitialspace=True
+        )
+    else:
+        # UCI Cleveland data has no header row
+        df = pd.read_csv(
+            path,
+            header=None,
+            names=cfg["raw_column_names"],
+            na_values=["?", "NA", "nan", ""],
+            skipinitialspace=True
+        )
+
+    logger.info(f"[{cfg['short_name']}] Loaded raw dataset with shape: {df.shape}")
     return df
 
 
-def process_dataset(df: pd.DataFrame) -> pd.DataFrame:
+def process_dataset(df: pd.DataFrame, dataset: str = DEFAULT_DATASET) -> pd.DataFrame:
     """
-    Validates and transforms the raw DataFrame:
-    - Encodes raw diagnosis 'num' (0 = absence, 1-4 = presence) -> 'target' (0 or 1).
-    - Removes raw 'num' column to prevent any target leakage.
-    - Ensures proper numeric dtypes for numeric features.
+    Validates and transforms the raw DataFrame based on dataset configuration:
+    - Drops patient identifier column if present (e.g. 'patientid' in India dataset).
+    - Encodes raw diagnosis -> binary 'target' (0 or 1).
+    - Removes raw target/leakage columns.
+    - Handles domain-specific sentinels (e.g. cholesterol == 0 coerced to NaN).
+    - Ensures proper numeric types for feature columns.
     """
+    cfg = get_dataset_config(dataset)
     df = df.copy()
-    
-    if TARGET_RAW_NAME not in df.columns and TARGET_NAME not in df.columns:
-        raise ValueError(f"Neither '{TARGET_RAW_NAME}' nor '{TARGET_NAME}' found in dataframe columns: {df.columns.tolist()}")
 
-    if TARGET_RAW_NAME in df.columns:
-        # Documented conversion: 0 -> 0 (absence), >= 1 -> 1 (presence)
-        df[TARGET_NAME] = (df[TARGET_RAW_NAME] > 0).astype(int)
-        df.drop(columns=[TARGET_RAW_NAME], inplace=True)
-        logger.info("Transformed target 'num' (0-4) to binary 'target' (0: absence, 1: presence).")
-    elif TARGET_NAME in df.columns:
-        # Check if already binary
-        unique_targets = set(df[TARGET_NAME].dropna().unique())
-        if not unique_targets.issubset({0, 1}):
-            df[TARGET_NAME] = (df[TARGET_NAME] > 0).astype(int)
+    # 1. Drop patient ID column to prevent identifier leakage
+    id_col = cfg.get("id_column")
+    if id_col and id_col in df.columns:
+        df.drop(columns=[id_col], inplace=True)
+        logger.info(f"[{cfg['short_name']}] Dropped ID column '{id_col}' to prevent identification leakage.")
 
-    # Convert all feature columns to float64 so missing values (NaN) can be retained for imputation
-    for col in FEATURE_NAMES:
+    # 2. Target validation & binarization
+    target_raw_col = cfg["target_raw_column"]
+    target_col = cfg["target_column"]
+
+    if target_raw_col in df.columns and target_raw_col != target_col:
+        # For UCI: num (0-4) -> binary target (0 vs 1)
+        df[target_col] = (df[target_raw_col] > 0).astype(int)
+        df.drop(columns=[target_raw_col], inplace=True)
+        logger.info(f"[{cfg['short_name']}] Transformed '{target_raw_col}' to binary '{target_col}'.")
+    elif target_col in df.columns:
+        # For India: target is already {0, 1}
+        df[target_col] = pd.to_numeric(df[target_col], errors="coerce").fillna(0).astype(int)
+
+    # 3. Domain-Specific Hygiene
+    if dataset == "india":
+        # In Indian hospital cohort, serumcholestrol == 0 is an undocumented missing placeholder (lipid panel not run)
+        if "serumcholestrol" in df.columns:
+            zero_chol = (df["serumcholestrol"] == 0).sum()
+            if zero_chol > 0:
+                logger.info(f"[{cfg['short_name']}] Coerced {zero_chol} zero-cholesterol values to NaN for imputation.")
+                df.loc[df["serumcholestrol"] == 0, "serumcholestrol"] = np.nan
+
+    # 4. Cast features to float64 to support NaN imputation
+    for col in cfg["feature_names"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
     return df
 
 
-def save_processed_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def save_processed_data(df: pd.DataFrame, dataset: str = DEFAULT_DATASET) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Saves full processed dataset, and performs a stratified train-test split (80/20).
-    Saves train.csv and test.csv.
+    Saves train.csv and test.csv in dataset-specific directories.
     """
-    PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    
-    # Save full cleaned dataset
-    df.to_csv(PROCESSED_DATA_FILE, index=False)
-    logger.info(f"Saved processed dataset to {PROCESSED_DATA_FILE}")
+    cfg = get_dataset_config(dataset)
+    proc_file: Path = cfg["processed_file"]
+    train_file: Path = cfg["train_file"]
+    test_file: Path = cfg["test_file"]
 
-    # Stratified Train-Test Split
-    X = df[FEATURE_NAMES]
-    y = df[TARGET_NAME]
+    proc_file.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(proc_file, index=False)
+    logger.info(f"[{cfg['short_name']}] Saved processed dataset ({len(df)} rows) to {proc_file}")
+
+    # Stratified Train-Test Split (80/20)
+    features = cfg["feature_names"]
+    target = cfg["target_column"]
+
+    X = df[features]
+    y = df[target]
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y,
@@ -164,22 +219,41 @@ def save_processed_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, p
     train_df = pd.concat([X_train, y_train], axis=1).reset_index(drop=True)
     test_df = pd.concat([X_test, y_test], axis=1).reset_index(drop=True)
 
-    train_df.to_csv(TRAIN_DATA_FILE, index=False)
-    test_df.to_csv(TEST_DATA_FILE, index=False)
+    train_df.to_csv(train_file, index=False)
+    test_df.to_csv(test_file, index=False)
 
-    logger.info(f"Saved stratified train set ({len(train_df)} rows) to {TRAIN_DATA_FILE}")
-    logger.info(f"Saved stratified test set ({len(test_df)} rows) to {TEST_DATA_FILE}")
+    logger.info(f"[{cfg['short_name']}] Saved stratified train set ({len(train_df)} rows) to {train_file}")
+    logger.info(f"[{cfg['short_name']}] Saved stratified test set ({len(test_df)} rows) to {test_file}")
+
+    # For backward compatibility: if active dataset matches default, also populate root data/processed/
+    if dataset == DEFAULT_DATASET:
+        root_proc = PROJECT_ROOT / "data" / "processed"
+        root_proc.mkdir(parents=True, exist_ok=True)
+        df.to_csv(root_proc / "heart_disease_cleaned.csv", index=False)
+        train_df.to_csv(root_proc / "train.csv", index=False)
+        test_df.to_csv(root_proc / "test.csv", index=False)
 
     return df, train_df, test_df
 
 
-def prepare_data_pipeline(force_download: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Complete acquisition and splitting pipeline."""
-    fetch_raw_data(force_download=force_download)
-    raw_df = load_raw_dataset()
-    processed_df = process_dataset(raw_df)
-    return save_processed_data(processed_df)
+def prepare_data_pipeline(dataset: str = DEFAULT_DATASET, force_download: bool = False) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Complete acquisition and splitting pipeline for specified dataset."""
+    fetch_raw_data(dataset=dataset, force_download=force_download)
+    raw_df = load_raw_dataset(dataset=dataset)
+    processed_df = process_dataset(raw_df, dataset=dataset)
+    return save_processed_data(processed_df, dataset=dataset)
 
 
 if __name__ == "__main__":
-    prepare_data_pipeline()
+    parser = argparse.ArgumentParser(description="CardioSense Data Loader Pipeline")
+    parser.add_argument("--dataset", type=str, default=DEFAULT_DATASET, choices=["india", "uci", "all"],
+                        help="Dataset to process: 'india' (default), 'uci', or 'all'")
+    parser.add_argument("--force", action="store_true", help="Force re-download raw files")
+    args = parser.parse_args()
+
+    if args.dataset == "all":
+        for ds in ["india", "uci"]:
+            print(f"\n{'='*50}\nProcessing {ds.upper()} Dataset\n{'='*50}")
+            prepare_data_pipeline(dataset=ds, force_download=args.force)
+    else:
+        prepare_data_pipeline(dataset=args.dataset, force_download=args.force)

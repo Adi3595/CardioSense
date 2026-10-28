@@ -1,0 +1,155 @@
+\documentclass[journal]{IEEEtran}
+\usepackage{amsmath,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{array}
+\usepackage[caption=false,font=normalsize,labelfont=sf,textfont=sf]{subfig}
+\usepackage{textcomp}
+\usepackage{stfloats}
+\usepackage{url}
+\usepackage{verbatim}
+\usepackage{graphicx}
+\usepackage{cite}
+\usepackage{booktabs}
+\usepackage{multirow}
+\hyphenation{op-tical net-works semi-conduc-tor IEEE-Xplore}
+
+\begin{document}
+
+\title{CardioSense: Explainable Machine Learning for Cardiovascular Disease Risk Stratification in Indian Clinical Cohorts and International Benchmarks}
+
+\author{Aditya\thanks{Aditya is the primary investigator and software architect for the CardioSense project (GitHub: https://github.com/Adi3595/CardioSense). Educational and academic research prototype. Not certified for clinical medical diagnosis.}}
+
+\markboth{IEEE Transactions on Emerging Topics in Computing / Healthcare Analytics,~Vol.~14, No.~8,~October~2026}%
+{Aditya: CardioSense: Explainable Machine Learning for Indian Cardiovascular Disease Risk}
+
+\maketitle
+
+\begin{abstract}
+Cardiovascular diseases (CVDs) constitute the foremost cause of premature mortality globally, with South Asian populations, particularly in India, experiencing premature coronary artery disease (CAD) one to two decades earlier than Western cohorts. While invasive coronary catheter angiography serves as the definitive reference standard for establishing vessel stenosis ($>50\%$), procedural hazards, radiation exposure, and significant healthcare expenditures necessitate reliable, non-invasive risk stratification systems. This paper introduces \textbf{CardioSense}, an end-to-end, leakage-free machine learning framework evaluated across two distinct clinical populations: a primary contemporary Indian hospital cohort ($N=1,000$ patient encounters, Doppala \& Bhattacharyya, Mendeley Data) and the canonical historical Cleveland benchmark ($N=303$, Janosi et al., UCI Repository). By strictly adhering to a Split-First protocol with Scikit-Learn \texttt{ColumnTransformer} encapsulation, we evaluate $L_2$-regularized Logistic Regression, Random Forest bagging, and Extreme Gradient Boosting (XGBoost) under Stratified 5-Fold Cross-Validation. On the Indian hospital cohort, the champion XGBoost model achieved an exceptional held-out test ROC-AUC of \textbf{0.9998}, accuracy of \textbf{99.50\%}, and \textbf{100.0\%} sensitivity ($200$ test cases, zero false negatives), with global Shapley Additive exPlanations (SHAP) identifying peak exercise ST slope, elevated resting systolic blood pressure (mean $151.7$ mm Hg), and typical angina presentation as the predominant clinical attribution forces. On the UCI benchmark, heavily regularized Logistic Regression confirmed model parity against tree ensembles ($0.9665$ vs. $0.9502$ ROC-AUC). All models, schemas, and serving layers are containerized and exposed via FastAPI and an interactive clinical portal.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Cardiovascular disease, India epidemiology, explainable artificial intelligence (XAI), SHAP, gradient boosting, clinical decision support, data leakage, MLOps.
+\end{IEEEkeywords}
+
+\section{Introduction}
+\IEEEPARSTART{C}{ardiovascular} disease (CVD) represents an urgent global public health crisis, causing approximately 17.9 million deaths annually. In India and the broader South Asian diaspora, the epidemiological profile of coronary artery disease is characterized by distinct clinical patterns: premature onset occurring 10 to 15 years earlier than in Western demographics, elevated prevalence of metabolic syndrome, severe multivessel involvement, and malignant atherothrombotic plaque rupture in patients under the age of 50. Studies from the Indian Council of Medical Research (ICMR-INDIAB) and the Indian Coronary Artery Disease Dataset (ICADD) underscore that genetic predisposition, rapid urbanization, high rates of untreated hypertension, and dyslipidemia contribute to this disproportionate clinical burden.
+
+Although coronary catheterization remains the gold standard for quantifying luminal narrowing, its invasive nature carries procedural morbidity (stroke, vascular dissection, contrast-induced nephropathy) and high financial costs. Consequently, non-invasive triage algorithms capable of identifying high-risk individuals prior to catheterization are vital.
+
+\textbf{CardioSense} investigates whether supervised machine learning pipelines, structured under strict data hygiene principles without distribution leakage, can accurately stratify coronary risk using non-invasive and minimally invasive clinical features. The contributions of this work are threefold:
+\begin{enumerate}
+    \item \textbf{Dual-Cohort Evaluation}: Integration of a primary Indian multi-specialty hospital cohort ($N=1,000$) alongside the canonical UCI Cleveland cohort ($N=303$) as an international baseline.
+    \item \textbf{Leakage-Free Architecture}: Encapsulated \texttt{ColumnTransformer} pipelines executing a strict Split-First protocol to prevent statistical contamination.
+    \item \textbf{Explainable Clinical Attribution}: Game-theoretic SHAP (SHapley Additive exPlanations) attributing local and global feature impact.
+\end{enumerate}
+
+\section{Related Work}
+Historical algorithmic cardiovascular benchmarks have predominantly focused on Western populations, notably the 1988 Cleveland Clinic cohort popularized by Detrano et al. and the Framingham Risk Score. While influential, these models frequently underestimate cardiovascular mortality in South Asian individuals who present with severe CAD despite lower average body mass indices.
+
+Recent initiatives have emphasized South Asian cardiovascular cohorts. Doppala and Bhattacharyya compiled a 1,000-patient dataset from an Indian tertiary hospital documenting 12 clinical attributes and angiographic outcomes. Concurrently, national registries such as ICMR-INDIAB and the open-access ICADD (Indian Coronary Artery Disease Dataset) have provided epidemiological baselines detailing high systolic blood pressure and metabolic markers in Indian patients. CardioSense bridges the gap between raw clinical tabular datasets and deployable, interpretable MLOps architectures.
+
+\section{Dataset Provenance \& Clinical Schemas}
+
+\subsection{Primary Indian Hospital Cohort}
+The primary investigation utilizes the Cardiovascular Disease Dataset acquired from an Indian multi-specialty tertiary care hospital by Doppala and Bhattacharyya, hosted on Mendeley Data (DOI: \texttt{10.17632/dzz48mvjht.1}) with verified SHA-256 checksum:
+$$\texttt{9376367dde41e79e432d6402ea5d9e44223fc318ff54ed09966d721923947d1e}$$
+The cohort comprises 1,000 unique records across 12 clinical features and a binary target ($58.0\%$ disease presence, $42.0\%$ disease absence). Crucially, the mean patient age is $49.2$ years (compared to $54.4$ years in UCI), reflecting premature disease presentation. The mean resting blood pressure is $151.7$ mm Hg, evidencing significant baseline hypertension.
+
+\begin{table}[htbp]
+\caption{Verified Clinical Predictor Schema (Indian Cohort)}
+\label{tab:india_schema}
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Feature Name} & \textbf{Type / Unit} & \textbf{Observed Range / Classes} \\
+\midrule
+\texttt{age} & Numeric (Years) & $20.0 - 80.0$ (Mean: 49.2) \\
+\texttt{gender} & Binary Indicator & 0 = Female (23.5\%), 1 = Male (76.5\%) \\
+\texttt{chestpain} & Nominal & 0: Typ, 1: Atyp, 2: Non-ang, 3: Asympt \\
+\texttt{restingBP} & Numeric (mm Hg) & $94.0 - 200.0$ (Mean: 151.7) \\
+\texttt{serumcholestrol} & Numeric (mg/dL) & $100.0 - 602.0$ (53 zero-sentinels imputed) \\
+\texttt{fastingbloodsugar} & Binary Indicator & 0 = $\le 120$ mg/dL, 1 = $>120$ mg/dL \\
+\texttt{restingrelectro} & Nominal & 0: Normal, 1: ST-T abn, 2: LVH \\
+\texttt{maxheartrate} & Numeric (bpm) & $71.0 - 202.0$ (Mean: 145.5) \\
+\texttt{exerciseangia} & Binary Indicator & 0 = No, 1 = Yes \\
+\texttt{oldpeak} & Numeric (mm) & $0.0 - 6.2$ (Mean: 2.7 mm) \\
+\texttt{slope} & Nominal & 0, 1: Upsloping, 2: Flat, 3: Downsloping \\
+\texttt{noofmajorvessels} & Nominal Count & 0, 1, 2, 3 major vessels \\
+\midrule
+\texttt{target} & Binary Target & 0: Absence (42.0\%), 1: Presence (58.0\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Historical UCI Cleveland Benchmark}
+The secondary benchmark comprises the canonical 1988 Cleveland Clinic cohort ($N=303$, 13 clinical attributes). Raw angiographic stenosis counts ($num \in \{0,1,2,3,4\}$) are thresholded at $\ge 50\%$ vessel narrowing ($num > 0 \rightarrow 1$), with the raw column immediately purged to prevent target leakage.
+
+\section{Methodology \& Preprocessing Architecture}
+\subsection{Leakage-Free Split-First Protocol}
+To prevent statistical contamination, partitioning precedes all transformations. The Indian dataset was partitioned into an 80\% training set ($N=800$) and a 20\% holdout test set ($N=200$) stratified by target. 
+
+\subsection{ColumnTransformer Preprocessing}
+Feature engineering is isolated within a Scikit-Learn \texttt{ColumnTransformer}:
+\begin{itemize}
+    \item \textbf{Continuous Features}: Median imputation coupled with $z$-score standardization ($z = (x-\mu)/\sigma$) strictly fitted within training folds. In the Indian cohort, 53 cases of zero cholesterol were identified as unrecorded lipid panels and imputed via training medians.
+    \item \textbf{Categorical Features}: Most-frequent mode imputation followed by One-Hot encoding with \texttt{handle\_unknown='ignore'} to prevent serving crashes upon encountering unobserved categories.
+\end{itemize}
+
+\section{Experimental Results}
+Models were evaluated using Stratified 5-Fold Cross-Validation on training data and tested blindly on untouched holdout partitions ($N=200$ for India; $N=61$ for UCI).
+
+\begin{table}[htbp]
+\caption{Cross-Validation \& Test Benchmark Results}
+\label{tab:results}
+\centering
+\begin{tabular}{lccccr}
+\toprule
+\textbf{Cohort / Model} & \textbf{CV ROC-AUC} & \textbf{Test Acc.} & \textbf{Recall} & \textbf{ROC-AUC} & \textbf{FN} \\
+\midrule
+\multicolumn{6}{l}{\textbf{Indian Hospital Cohort ($N=1,000$, Test $N=200$)}} \\
+Logistic Regression & $0.9909 \pm 0.0084$ & 97.00\% & 97.41\% & 0.9978 & 3 \\
+Random Forest & $0.9957 \pm 0.0059$ & 99.00\% & 99.14\% & 0.9995 & 1 \\
+\textbf{XGBoost (Champion)} & \textbf{0.9960} $\pm$ \textbf{0.0040} & \textbf{99.50\%} & \textbf{100.0\%} & \textbf{0.9998} & \textbf{0} \\
+\midrule
+\multicolumn{6}{l}{\textbf{UCI Cleveland Benchmark ($N=303$, Test $N=61$)}} \\
+\textbf{Logistic Regression} & $0.9025 \pm 0.0144$ & 88.52\% & 92.86\% & \textbf{0.9665} & 2 \\
+Random Forest & \textbf{0.9038} $\pm$ \textbf{0.0238} & 88.52\% & 92.86\% & 0.9502 & 2 \\
+XGBoost & $0.8901 \pm 0.0221$ & 86.89\% & 89.29\% & 0.9481 & 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+On the Indian cohort, XGBoost demonstrated near-perfect discrimination, attaining 100\% sensitivity (zero false negatives among 116 disease cases) with only 1 false alarm (99.5\% overall test accuracy).
+
+\section{Explainability via Game-Theoretic SHAP}
+Shapley values allocate additive importance values $\phi_i$ satisfying Efficiency, Symmetry, and Additivity axioms:
+$$\phi_i = \sum_{S \subseteq F \setminus \{i\}} \frac{|S|!(|F|-|S|-1)!}{|F|!} [f(S \cup \{i\}) - f(S)]$$
+For the Indian cohort, the top predictive clinical drivers identified by TreeExplainer were:
+\begin{enumerate}
+    \item \texttt{slope\_1} \& \texttt{slope\_0} (Mean $|\text{SHAP}| = 1.075, 0.990$): Exercise ST takeoff morphology.
+    \item \texttt{restingBP} (Mean $|\text{SHAP}| = 0.648$): High systemic hypertension strongly elevating risk.
+    \item \texttt{chestpain\_0} (Mean $|\text{SHAP}| = 0.494$): Typical angina presentation.
+    \item \texttt{oldpeak} (Mean $|\text{SHAP}| = 0.314$): Exercise-induced myocardial ischemia depth.
+    \item \texttt{restingrelectro\_2} (Mean $|\text{SHAP}| = 0.307$): Left ventricular hypertrophy.
+\end{enumerate}
+
+\section{Limitations \& Ethical Governance}
+While the Indian hospital dataset exhibits strong discriminative features, it represents patient encounters from a single multi-specialty institution in India. It does not encompass the full geographical and genetic diversity of rural Indian populations. Furthermore, SHAP attributions quantify predictive correlations rather than direct molecular causality. CardioSense is strictly designated for academic research and educational decision support.
+
+\section{Conclusion}
+CardioSense establishes an explainable, leakage-free diagnostic machine learning framework tailored to Indian cardiovascular risk profiles while preserving canonical UCI benchmark reproducibility. The system demonstrates that modern gradient-boosted ensembles achieve high sensitivity ($100\%$ on Indian holdout tests), mitigating lethal triage misses while providing interpretable clinical explanations.
+
+\begin{thebibliography}{10}
+\bibitem{doppala2021} B. P. Doppala and D. Bhattacharyya, ``Cardiovascular\_Disease\_Dataset,'' \emph{Mendeley Data}, vol. 1, 2021. doi: 10.17632/dzz48mvjht.1.
+\bibitem{icmr2023} Indian Council of Medical Research, ``ICMR-INDIAB National Study: Cardiovascular and Metabolic Disease in India,'' \emph{NHRDR Data Repository}, 2023.
+\bibitem{icadd2023} S. Sharma et al., ``Indian Coronary Artery Disease Dataset (ICADD): Angiographic Characteristics and Non-Invasive Markers,'' \emph{medRxiv}, 2023. doi: 10.1101/2023.05.13.23289934v1.
+\bibitem{detrano1989} R. Detrano et al., ``International application of a new probability algorithm for the diagnosis of coronary artery disease,'' \emph{Am. J. Cardiol.}, vol. 64, no. 5, pp. 304--310, 1989.
+\bibitem{lundberg2017} S. M. Lundberg and S.-I. Lee, ``A unified approach to interpreting model predictions,'' in \emph{Proc. NeurIPS}, 2017, pp. 4765--4774.
+\bibitem{chen2016} T. Chen and C. Guestrin, ``XGBoost: A scalable tree boosting system,'' in \emph{Proc. ACM SIGKDD}, 2016, pp. 785--794.
+\bibitem{breiman2001} L. Breiman, ``Random forests,'' \emph{Mach. Learn.}, vol. 45, no. 1, pp. 5--32, 2001.
+\bibitem{who2024} World Health Organization, ``Cardiovascular Diseases Fact Sheet,'' Geneva: WHO, 2024.
+\end{thebibliography}
+
+\end{document}

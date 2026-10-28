@@ -1,5 +1,9 @@
 """
 Evaluation and error analysis module for CardioSense.
+Supports dual-dataset evaluation:
+1. India Hospital Cohort (Primary): N=1000, 200 holdout test samples
+2. UCI Cleveland Benchmark (Historical): N=303, 61 holdout test samples
+
 Computes comprehensive metrics, confusion matrices, ROC curves, PR curves,
 and detailed test-set error diagnostics.
 """
@@ -29,11 +33,12 @@ from sklearn.metrics import (
 )
 
 from src.config import (
+    DEFAULT_DATASET,
+    get_dataset_config,
+    DATASETS_CONFIG,
     FIGURES_DIR,
     METRICS_DIR,
-    ERROR_ANALYSIS_CSV,
-    FEATURE_NAMES,
-    TARGET_NAME
+    PROJECT_ROOT
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -45,7 +50,7 @@ PALETTE = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
 def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_proba: Optional[np.ndarray] = None) -> Dict[str, Any]:
     """
     Computes all standard binary classification metrics.
-    Positive class is strictly defined as 1 (Presence of Heart Disease).
+    Positive class is strictly defined as 1 (Presence of Heart Disease / CVD).
     """
     cm = confusion_matrix(y_true, y_pred)
     tn, fp, fn, tp = cm.ravel()
@@ -80,9 +85,10 @@ def calculate_metrics(y_true: np.ndarray, y_pred: np.ndarray, y_proba: Optional[
     }
 
 
-def plot_confusion_matrices(models_results: Dict[str, Any], save_path: Optional[Path] = None) -> Path:
+def plot_confusion_matrices(models_results: Dict[str, Any], dataset: str = DEFAULT_DATASET, save_path: Optional[Path] = None) -> Path:
     """Plots side-by-side annotated confusion matrices for all evaluated models."""
-    output_path = save_path or FIGURES_DIR / "confusion_matrices_comparison.png"
+    cfg = get_dataset_config(dataset)
+    output_path = save_path or cfg["figures_dir"] / "confusion_matrices_comparison.png"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     n_models = len(models_results)
@@ -99,151 +105,153 @@ def plot_confusion_matrices(models_results: Dict[str, Any], save_path: Optional[
             yticklabels=["Absence (0)", "Presence (1)"],
             ax=ax, annot_kws={"size": 14, "weight": "bold"}
         )
-        fn = res["metrics"]["false_negatives"]
-        fp = res["metrics"]["false_positives"]
+        acc = res["metrics"]["accuracy"]
         rec = res["metrics"]["recall"]
-        prec = res["metrics"]["precision"]
-        ax.set_title(f"{name.replace('_', ' ').title()}\nRecall: {rec:.2f} | Prec: {prec:.2f}\n(FN={fn}, FP={fp})", fontsize=11)
+        ax.set_title(f"{name.replace('_', ' ').title()}\nAcc: {acc:.2%} | Recall: {rec:.2%}", fontsize=12)
         ax.set_xlabel("Predicted Diagnosis")
-        ax.set_ylabel("True Dataset Diagnosis")
+        ax.set_ylabel("True Diagnosis")
 
-    fig.suptitle("Test Set Confusion Matrix Comparison (Held-out N=61)", y=1.04, fontsize=14, fontweight="bold")
+    fig.suptitle(f"Test Set Confusion Matrices ({cfg['short_name']})", fontsize=14, y=1.03)
     plt.tight_layout()
     fig.savefig(output_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
-    logger.info(f"Saved confusion matrix comparison to {output_path}")
+    logger.info(f"[{cfg['short_name']}] Saved confusion matrices figure to {output_path}")
     return output_path
 
 
-def plot_roc_curves(models_results: Dict[str, Any], save_path: Optional[Path] = None) -> Path:
-    """Plots multi-model ROC curves with AUC annotations."""
-    output_path = save_path or FIGURES_DIR / "roc_curves_comparison.png"
+def plot_roc_curves(models_results: Dict[str, Any], dataset: str = DEFAULT_DATASET, save_path: Optional[Path] = None) -> Path:
+    """Plots comparative Receiver Operating Characteristic (ROC) curves."""
+    cfg = get_dataset_config(dataset)
+    output_path = save_path or cfg["figures_dir"] / "roc_curves_comparison.png"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    fig, ax = plt.subplots(figsize=(7.5, 6))
+    fig, ax = plt.subplots(figsize=(7, 6))
 
     for idx, (name, res) in enumerate(models_results.items()):
-        if "y_proba" in res and res["y_proba"] is not None:
+        if res.get("y_proba") is not None:
             fpr, tpr, _ = roc_curve(res["y_true"], res["y_proba"])
             auc = res["metrics"]["roc_auc"]
-            ax.plot(fpr, tpr, label=f"{name.replace('_', ' ').title()} (AUC = {auc:.3f})", linewidth=2.2)
+            ax.plot(fpr, tpr, lw=2.2, label=f"{name.replace('_', ' ').title()} (AUC = {auc:.4f})", color=PALETTE[idx % len(PALETTE)])
 
-    # Random chance line
-    ax.plot([0, 1], [0, 1], "k--", label="Random Classifier (AUC = 0.500)", alpha=0.6)
-    ax.set_xlim([-0.02, 1.02])
-    ax.set_ylim([-0.02, 1.05])
+    ax.plot([0, 1], [0, 1], color="grey", lw=1.5, linestyle="--", label="Random Classifier (AUC = 0.5000)")
+    ax.set_xlim([-0.01, 1.01])
+    ax.set_ylim([-0.01, 1.01])
     ax.set_xlabel("False Positive Rate (1 - Specificity)")
-    ax.set_ylabel("True Positive Rate (Recall / Sensitivity)")
-    ax.set_title("Receiver Operating Characteristic (ROC) Curves - Test Set")
+    ax.set_ylabel("True Positive Rate (Sensitivity / Recall)")
+    ax.set_title(f"ROC Curves - Model Comparison ({cfg['short_name']})")
     ax.legend(loc="lower right", frameon=True)
     plt.tight_layout()
     fig.savefig(output_path, dpi=300)
     plt.close(fig)
-    logger.info(f"Saved ROC curves comparison to {output_path}")
+    logger.info(f"[{cfg['short_name']}] Saved ROC curves figure to {output_path}")
     return output_path
 
 
-def plot_precision_recall_curves(models_results: Dict[str, Any], save_path: Optional[Path] = None) -> Path:
-    """Plots multi-model Precision-Recall curves."""
-    output_path = save_path or FIGURES_DIR / "precision_recall_curves_comparison.png"
+def plot_precision_recall_curves(models_results: Dict[str, Any], dataset: str = DEFAULT_DATASET, save_path: Optional[Path] = None) -> Path:
+    """Plots comparative Precision-Recall curves."""
+    cfg = get_dataset_config(dataset)
+    output_path = save_path or cfg["figures_dir"] / "precision_recall_curves_comparison.png"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    fig, ax = plt.subplots(figsize=(7.5, 6))
+    fig, ax = plt.subplots(figsize=(7, 6))
 
     for idx, (name, res) in enumerate(models_results.items()):
-        if "y_proba" in res and res["y_proba"] is not None:
+        if res.get("y_proba") is not None:
             precision, recall, _ = precision_recall_curve(res["y_true"], res["y_proba"])
             ap = res["metrics"].get("average_precision", 0.0)
-            ax.plot(recall, precision, label=f"{name.replace('_', ' ').title()} (AP = {ap:.3f})", linewidth=2.2)
+            ax.plot(recall, precision, lw=2.2, label=f"{name.replace('_', ' ').title()} (AP = {ap:.4f})", color=PALETTE[idx % len(PALETTE)])
 
-    ax.set_xlim([-0.02, 1.02])
-    ax.set_ylim([0.4, 1.05])
     ax.set_xlabel("Recall (Sensitivity)")
     ax.set_ylabel("Precision (Positive Predictive Value)")
-    ax.set_title("Precision-Recall Curves - Test Set")
+    ax.set_title(f"Precision-Recall Curves ({cfg['short_name']})")
     ax.legend(loc="lower left", frameon=True)
     plt.tight_layout()
     fig.savefig(output_path, dpi=300)
     plt.close(fig)
-    logger.info(f"Saved Precision-Recall curves to {output_path}")
+    logger.info(f"[{cfg['short_name']}] Saved Precision-Recall curves figure to {output_path}")
     return output_path
 
 
-def plot_metrics_comparison_bar(models_results: Dict[str, Any], save_path: Optional[Path] = None) -> Path:
-    """Generates comparative bar chart across models for primary performance metrics."""
-    output_path = save_path or FIGURES_DIR / "models_metrics_comparison.png"
+def plot_metrics_comparison_bar(models_results: Dict[str, Any], dataset: str = DEFAULT_DATASET, save_path: Optional[Path] = None) -> Path:
+    """Plots multi-metric grouped bar chart comparing all models."""
+    cfg = get_dataset_config(dataset)
+    output_path = save_path or cfg["figures_dir"] / "models_metrics_comparison.png"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    metrics_names = ["roc_auc", "recall", "precision", "f1_score", "accuracy"]
-    display_names = ["ROC-AUC", "Recall (Sensitivity)", "Precision", "F1-Score", "Accuracy"]
-    
+    metrics_names = ["accuracy", "precision", "recall", "specificity", "f1_score", "roc_auc"]
+    display_names = ["Accuracy", "Precision", "Recall (Sens.)", "Specificity", "F1-Score", "ROC-AUC"]
+
     data = []
     for model_name, res in models_results.items():
-        m = res["metrics"]
-        for key, disp in zip(metrics_names, display_names):
-            data.append({
-                "Model": model_name.replace("_", " ").title(),
-                "Metric": disp,
-                "Score": m.get(key, 0.0)
-            })
-    
-    df_plot = pd.DataFrame(data)
+        for m_key, m_disp in zip(metrics_names, display_names):
+            val = res["metrics"].get(m_key)
+            if val is not None:
+                data.append({
+                    "Model": model_name.replace("_", " ").title(),
+                    "Metric": m_disp,
+                    "Score": val
+                })
+
+    plot_df = pd.DataFrame(data)
+
     fig, ax = plt.subplots(figsize=(10, 5.5))
-    sns.barplot(data=df_plot, x="Metric", y="Score", hue="Model", palette="deep", ax=ax, edgecolor="black", alpha=0.88)
-    
-    ax.set_ylim(0.0, 1.08)
-    ax.set_ylabel("Metric Value")
-    ax.set_title("Held-out Test Performance Across Model Families")
-    ax.legend(title="Model Family", bbox_to_anchor=(1.02, 1), loc="upper left")
-    
+    sns.barplot(data=plot_df, x="Metric", y="Score", hue="Model", palette="muted", ax=ax, edgecolor="black", alpha=0.9)
+    ax.set_ylim(0.5, 1.02)
+    ax.set_title(f"Diagnostic Performance Metrics Comparison ({cfg['short_name']})", pad=12)
+    ax.set_ylabel("Score (0.0 to 1.0)")
+    ax.legend(title="Model Family", loc="lower right")
+
     for p in ax.patches:
         h = p.get_height()
-        if h > 0.05:
+        if h > 0.1:
             ax.annotate(f"{h:.2f}",
-                        (p.get_x() + p.get_width() / 2., h),
-                        ha="center", va="bottom", fontsize=8, rotation=0, xytext=(0, 2),
-                        textcoords="offset points")
+                        xy=(p.get_x() + p.get_width() / 2, h),
+                        xytext=(0, 3), textcoords="offset points",
+                        ha="center", va="bottom", fontsize=8.5, rotation=0)
 
     plt.tight_layout()
-    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    fig.savefig(output_path, dpi=300)
     plt.close(fig)
-    logger.info(f"Saved metrics comparison bar plot to {output_path}")
+    logger.info(f"[{cfg['short_name']}] Saved metrics comparison bar figure to {output_path}")
     return output_path
 
 
 def perform_error_analysis(
     X_test: pd.DataFrame,
-    y_true: pd.Series,
+    y_test: pd.Series,
     y_pred: np.ndarray,
     y_proba: np.ndarray,
-    model_name: str
+    dataset: str = DEFAULT_DATASET,
+    save_path: Optional[Path] = None
 ) -> pd.DataFrame:
     """
-    Identifies and analyzes misclassified observations on held-out test data.
-    Documents true labels, predicted probabilities, error category (FP vs FN),
-    and clinical predictor profiles.
+    Identifies and classifies all test-set misclassifications into False Negatives and False Positives.
     """
-    METRICS_DIR.mkdir(parents=True, exist_ok=True)
-    
-    df_err = X_test.copy()
-    df_err["true_target"] = y_true.values
-    df_err["predicted_target"] = y_pred
-    df_err["predicted_proba"] = np.round(y_proba, 4)
-    df_err["prediction_correct"] = (df_err["true_target"] == df_err["predicted_target"])
-    
-    def categorize_error(row):
+    cfg = get_dataset_config(dataset)
+    target_col = cfg["target_column"]
+    output_path = save_path or cfg["metrics_dir"] / "error_analysis.csv"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    df_errors = X_test.copy()
+    df_errors["true_target"] = y_test.values
+    df_errors["predicted_target"] = y_pred
+    df_errors["predicted_proba"] = np.round(y_proba, 4)
+    df_errors["prediction_correct"] = df_errors["true_target"] == df_errors["predicted_target"]
+
+    error_type = []
+    for _, row in df_errors.iterrows():
         if row["true_target"] == 1 and row["predicted_target"] == 0:
-            return "False Negative (Missed Disease)"
+            error_type.append("False Negative (Missed Disease)")
         elif row["true_target"] == 0 and row["predicted_target"] == 1:
-            return "False Positive (False Alarm)"
-        return "Correct"
+            error_type.append("False Positive (False Alarm)")
+        else:
+            error_type.append("Correct")
 
-    df_err["error_type"] = df_err.apply(categorize_error, axis=1)
-    
-    # Filter only errors
-    misclassified = df_err[~df_err["prediction_correct"]].copy()
-    misclassified.sort_values(by="error_type", inplace=True)
-    misclassified.to_csv(ERROR_ANALYSIS_CSV, index=True, index_label="test_set_index")
-    logger.info(f"Saved {len(misclassified)} misclassified records to {ERROR_ANALYSIS_CSV}")
+    df_errors["error_type"] = error_type
+    misclassified = df_errors[~df_errors["prediction_correct"]].copy()
 
+    # Index column
+    misclassified.insert(0, "test_set_index", misclassified.index)
+    misclassified.to_csv(output_path, index=False)
+    logger.info(f"[{cfg['short_name']}] Saved error analysis ({len(misclassified)} errors) to {output_path}")
     return misclassified

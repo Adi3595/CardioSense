@@ -1,23 +1,23 @@
 {
-  "dataset_name": "UCI Heart Disease (Cleveland database)",
-  "retrieval_url": "https://archive.ics.uci.edu/ml/machine-learning-databases/heart-disease/processed.cleveland.data",
-  "sha256_checksum": "a74b7efa387bc9d108d7d0115d831fe9b414b29ae7124f331b622b4efa0427c8",
+  "dataset_key": "india",
+  "dataset_name": "Indian Hospital Cardiovascular Disease Dataset",
+  "retrieval_url": "https://data.mendeley.com/datasets/dzz48mvjht/1",
+  "sha256_checksum": "9376367dde41e79e432d6402ea5d9e44223fc318ff54ed09966d721923947d1e",
   "raw_shape": [
-    303,
+    1000,
     14
   ],
   "processed_shape": [
-    303,
-    14
+    1000,
+    13
   ],
   "target_distribution": {
-    "absence (0)": 164,
-    "presence (1)": 139,
-    "prevalence_rate": 0.4587
+    "absence (0)": 420,
+    "presence (1)": 580,
+    "prevalence_rate": 0.58
   },
   "missing_values_per_column": {
-    "ca": 4,
-    "thal": 2
+    "serumcholestrol": 53
   },
   "duplicate_rows": 0
 }

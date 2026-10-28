@@ -1,0 +1,132 @@
+{
+  "project": "CardioSense",
+  "dataset_key": "india",
+  "dataset_name": "Indian Hospital Cardiovascular Disease Dataset",
+  "timestamp_utc": "2026-10-28T14:38:14.864415+00:00",
+  "dataset_info": {
+    "name": "Indian Hospital Cardiovascular Disease Dataset",
+    "url": "https://data.mendeley.com/datasets/dzz48mvjht/1",
+    "sha256": "9376367dde41e79e432d6402ea5d9e44223fc318ff54ed09966d721923947d1e",
+    "authors": "Bhanu Prakash Doppala and Debnath Bhattacharyya"
+  },
+  "experimental_controls": {
+    "random_state": 42,
+    "cv_folds": 5,
+    "primary_selection_metric": "roc_auc",
+    "train_test_split": "80/20 Stratified"
+  },
+  "environment": {
+    "python_version": "3.12.13",
+    "os_platform": "Windows-11-10.0.26200-SP0",
+    "scikit_learn_version": "1.9.1",
+    "xgboost_version": "3.4.1",
+    "shap_version": "0.54.1"
+  },
+  "best_model_selected": "xgboost",
+  "models": {
+    "logistic_regression": {
+      "best_params": {
+        "classifier__C": 10.0,
+        "classifier__max_iter": 1000,
+        "classifier__penalty": "l2",
+        "classifier__solver": "lbfgs"
+      },
+      "cv_metrics": {
+        "mean_roc_auc": 0.9909,
+        "std_roc_auc": 0.0084,
+        "mean_accuracy": 0.965,
+        "mean_precision": 0.9678,
+        "mean_recall": 0.9719,
+        "mean_f1": 0.9698
+      },
+      "test_metrics": {
+        "accuracy": 0.97,
+        "precision": 0.9741,
+        "recall": 0.9741,
+        "specificity": 0.9643,
+        "f1_score": 0.9741,
+        "roc_auc": 0.9978,
+        "average_precision": 0.9984,
+        "confusion_matrix": {
+          "true_negatives": 81,
+          "false_positives": 3,
+          "false_negatives": 3,
+          "true_positives": 113
+        },
+        "false_negatives": 3,
+        "false_positives": 3,
+        "total_test_samples": 200
+      }
+    },
+    "random_forest": {
+      "best_params": {
+        "classifier__max_depth": null,
+        "classifier__max_features": "sqrt",
+        "classifier__min_samples_leaf": 1,
+        "classifier__n_estimators": 100
+      },
+      "cv_metrics": {
+        "mean_roc_auc": 0.9957,
+        "std_roc_auc": 0.0059,
+        "mean_accuracy": 0.9788,
+        "mean_precision": 0.9808,
+        "mean_recall": 0.9827,
+        "mean_f1": 0.9817
+      },
+      "test_metrics": {
+        "accuracy": 0.99,
+        "precision": 0.9914,
+        "recall": 0.9914,
+        "specificity": 0.9881,
+        "f1_score": 0.9914,
+        "roc_auc": 0.9995,
+        "average_precision": 0.9996,
+        "confusion_matrix": {
+          "true_negatives": 83,
+          "false_positives": 1,
+          "false_negatives": 1,
+          "true_positives": 115
+        },
+        "false_negatives": 1,
+        "false_positives": 1,
+        "total_test_samples": 200
+      }
+    },
+    "xgboost": {
+      "best_params": {
+        "classifier__colsample_bytree": 0.8,
+        "classifier__learning_rate": 0.05,
+        "classifier__max_depth": 4,
+        "classifier__n_estimators": 100,
+        "classifier__reg_lambda": 1.0,
+        "classifier__subsample": 1.0
+      },
+      "cv_metrics": {
+        "mean_roc_auc": 0.996,
+        "std_roc_auc": 0.004,
+        "mean_accuracy": 0.9637,
+        "mean_precision": 0.9585,
+        "mean_recall": 0.9805,
+        "mean_f1": 0.9692
+      },
+      "test_metrics": {
+        "accuracy": 0.995,
+        "precision": 0.9915,
+        "recall": 1.0,
+        "specificity": 0.9881,
+        "f1_score": 0.9957,
+        "roc_auc": 0.9998,
+        "average_precision": 0.9999,
+        "confusion_matrix": {
+          "true_negatives": 83,
+          "false_positives": 1,
+          "false_negatives": 0,
+          "true_positives": 116
+        },
+        "false_negatives": 0,
+        "false_positives": 1,
+        "total_test_samples": 200
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+test_set_index,age,sex,cp,trestbps,chol,fbs,restecg,thalach,exang,oldpeak,slope,ca,thal,true_target,predicted_target,predicted_proba,prediction_correct,error_type
+1,66.0,1.0,4.0,160.0,228.0,0.0,2.0,138.0,0.0,2.3,1.0,0.0,6.0,0,1,0.5992,False,False Positive (False Alarm)
+17,69.0,1.0,1.0,160.0,234.0,1.0,2.0,131.0,0.0,0.1,2.0,1.0,3.0,0,1,0.6468,False,False Positive (False Alarm)
+20,59.0,1.0,4.0,135.0,234.0,0.0,0.0,161.0,0.0,0.5,2.0,0.0,7.0,0,1,0.5968,False,False Positive (False Alarm)
+33,58.0,1.0,2.0,125.0,220.0,0.0,0.0,144.0,0.0,0.4,2.0,,7.0,0,1,0.5342,False,False Positive (False Alarm)
+37,60.0,1.0,3.0,140.0,185.0,0.0,2.0,155.0,0.0,3.0,2.0,0.0,3.0,1,0,0.3138,False,False Negative (Missed Disease)
+40,62.0,1.0,3.0,130.0,231.0,0.0,0.0,146.0,0.0,1.8,2.0,3.0,7.0,0,1,0.8201,False,False Positive (False Alarm)
+54,59.0,0.0,4.0,174.0,249.0,0.0,0.0,143.0,1.0,0.0,2.0,0.0,3.0,1,0,0.4687,False,False Negative (Missed Disease)
