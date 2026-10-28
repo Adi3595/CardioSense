@@ -632,11 +632,10 @@ def build_document():
     )
 
     arch_points = [
-        ("FastAPI Backend: ", "Exposes dedicated endpoints /predict/india (12 features) and /predict/uci (13 features), alongside a dynamic /predict endpoint that automatically validates payloads against the appropriate Pydantic schema."),
+        ("FastAPI Backend Service: ", "Exposes dedicated endpoints /predict/india (12 features) and /predict/uci (13 features), alongside a dynamic /predict endpoint that automatically validates payloads against the appropriate Pydantic schema."),
         ("Strict Schema Validation: ", "Pydantic models reject physiological impossibilities (e.g., negative age, systolic BP outside 80-250 mm Hg) with HTTP 422 Unprocessable Entity."),
         ("Multi-Model Lifespan Loading: ", "On application startup, pre-trained pipelines for both cohorts are deserialized into memory without re-training."),
-        ("Minimalistic Soft Pastel Streamlit UI: ", "app/streamlit_app.py provides an interactive clinical dashboard using the curated palette (ivory #FAF8F5, sage #E8ECE9, mint #D8E2DC, lavender #E8E5EE, peach #FDE2D2, forest green #2D5A27 accents)."),
-        ("Fullstack Next.js Portal: ", "frontend/ provides an interactive React research portal showcasing real-time API health, EDA charts, benchmark switchers, and patient simulation.")
+        ("Full-Stack Next.js 16 Web Portal: ", "frontend/ provides an interactive React 19 web portal styled with the soft pastel design system (ivory #FAF8F4, sage #E8ECE9, mint #D8E2DC, lavender #E8E5EE, peach #FDE2D2, forest green #355B4B accents). Features a dual-cohort switcher, live patient risk simulation, benchmark tables, and interactive SHAP lightbox.")
     ]
     for bold_pre, text in arch_points:
         add_paragraph_styled(doc, text=text, bold_prefix="• " + bold_pre, space_after=3)

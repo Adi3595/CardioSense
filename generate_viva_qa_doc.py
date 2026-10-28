@@ -527,14 +527,14 @@ def build_viva_qa_document():
     add_qa_card(
         doc,
         12,
-        "What design system was implemented for the Streamlit user interface?",
-        "The Streamlit app (app/streamlit_app.py) was built with a curated soft pastel palette focused on clinical clarity and visual serenity:\n"
-        "• Primary Background: Soft ivory/off-white (#FAF8F5)\n"
+        "What design system and architecture was implemented for the Next.js web application?",
+        "The Next.js full-stack web application (frontend/) was built using React 19 and Turbopack, styled with a curated soft pastel aesthetic:\n"
+        "• Canvas Background: Soft ivory/off-white (#FAF8F4)\n"
         "• Surface Cards: Sage (#E8ECE9) and mint (#D8E2DC)\n"
-        "• Secondary Accents: Soft lavender (#E8E5EE) and peach (#FDE2D2)\n"
-        "• Typography & Badges: Deep forest green (#2D5A27)\n"
-        "The app features an interactive cohort switcher, dynamic input sliders, live inference calculation, real benchmark metrics tables, and non-diagnostic disclaimers.",
-        "Soft pastel palette: ivory, sage, mint, lavender, peach, and forest-green accents."
+        "• Accent Tints: Soft lavender (#E8E5EE) and peach (#FDE2D2)\n"
+        "• Typography & Actions: Deep forest green (#355B4B)\n"
+        "The interface includes an interactive dual-cohort switcher (India Primary vs. UCI Benchmark), live patient risk simulation communicating asynchronously with FastAPI, benchmark comparison tables, and an interactive SHAP figure lightbox.",
+        "Soft pastel design system: ivory, sage, mint, lavender, peach, and forest-green accents in React 19."
     )
 
     # SECTION F: LIMITATIONS & GOVERNANCE

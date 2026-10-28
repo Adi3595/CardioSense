@@ -3,7 +3,6 @@
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.116-009688.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.42-FF4B4B.svg)](https://streamlit.io/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000.svg)](https://nextjs.org/)
 [![Tests Passing](https://img.shields.io/badge/pytest-25%20passed-brightgreen.svg)]()
 
@@ -251,19 +250,20 @@ Response:
 }
 ```
 
-### B. Streamlit Application
-Launch the clean, minimalistic Streamlit application utilizing the curated soft pastel palette (ivory `#FAF8F5`, sage `#E8ECE9`, mint `#D8E2DC`, lavender `#E8E5EE`, peach `#FDE2D2`, and forest green `#2D5A27` accents):
-```bash
-streamlit run app/streamlit_app.py
-```
-Access at `http://localhost:8501`.
-
-### C. Next.js Web Portal
+### B. Full-Stack Next.js Web Application
+Launch the interactive React 19 web portal styled with the soft pastel aesthetic (ivory `#FAF8F4`, sage `#E8ECE9`, mint `#D8E2DC`, lavender `#E8E5EE`, peach `#FDE2D2`, and forest green `#355B4B` accents):
 ```bash
 cd frontend
 npm run dev
 ```
 Access at `http://localhost:3000`.
+
+**Frontend Capabilities**:
+- **Dual-Cohort Switcher**: Toggle dynamically between the Primary **Indian Hospital Cohort** (12 clinical predictors) and the **UCI Cleveland Benchmark** (13 predictors).
+- **Real-Time API Inference**: Asynchronously communicates with FastAPI `/predict/india` and `/predict/uci` with automated Pydantic schema validation.
+- **Model Performance Laboratory**: Interactive comparison tables for both cohorts with confusion matrix and curve switchers.
+- **SHAP Feature Attribution**: View top predictors, beeswarm summary plots, and patient waterfall explanations.
+- **Interactive Lightbox**: Click any research plot to zoom and inspect in detail.
 
 ---
 
